@@ -6,7 +6,7 @@
 
 import { motionValue } from "motion/react";
 import { useEffect, useRef } from "react";
-import { buildStatic, heroRects, HERO, layout, replayRects, RING, wasteLayout, type FieldRun } from "./layout";
+import { buildStatic, GALAXY, galaxyFrame, HERO, layout, replayRects, RING, wasteLayout, type FieldRun } from "./layout";
 
 export type FieldCtrl = {
   /** 0 in the hero, 1 when the replay scene owns the field. */
@@ -85,7 +85,7 @@ const MAX_CALLS = 32;
 
 const VERT = /* glsl */ `#version 300 es
 precision highp float;
-layout(location = 0) in vec2 aHero;
+layout(location = 0) in vec4 aGal; // radius, angle, height, place in the run
 layout(location = 1) in vec2 aReplay;
 layout(location = 2) in vec2 aCloud;
 layout(location = 3) in vec4 aMeta; // seed, call, place in call, kind
@@ -126,6 +126,9 @@ uniform float uSwirl;
 uniform vec2 uSink;
 uniform float uSinkK;
 uniform vec4 uAlpha; // hero, replay, cloud, heap
+uniform vec3 uGal; // center x, center y, radius in px
+uniform vec3 uView; // spin, pitch, yaw
+uniform vec4 uQuiet; // the headline's box: dots behind it step back
 uniform float uRingA;
 
 out vec4 vColor;
@@ -146,8 +149,16 @@ void main() {
   float callN = aMeta.y / max(1.0, uCalls - 1.0);
   float minRes = min(uRes.x, uRes.y);
 
-  // Hero: the token columns, breathing a little.
-  vec2 hero = aHero + vec2(sin(uTime * 0.7 + seed * 41.0), cos(uTime * 0.55 + seed * 29.0)) * 0.8;
+  // Hero: the token galaxy. The run spirals out from its first call at the core to its last at
+  // the rim. The disk turns, and the pointer tips it. Same math as projectGalaxy in layout.ts.
+  float ga = aGal.y + uView.x;
+  vec3 g3 = vec3(cos(ga) * aGal.x, aGal.z, sin(ga) * aGal.x);
+  float cyw = cos(uView.z), syw = sin(uView.z);
+  g3 = vec3(cyw * g3.x + syw * g3.z, g3.y, -syw * g3.x + cyw * g3.z);
+  float cp = cos(uView.y), sp = sin(uView.y);
+  g3 = vec3(g3.x, cp * g3.y - sp * g3.z, sp * g3.y + cp * g3.z);
+  float persp = 1.0 / (1.0 + clamp(g3.z, -1.5, 1.5) * 0.16);
+  vec2 hero = uGal.xy + g3.xy * persp * uGal.z;
 
   // The cloud each token waits in until its call runs. It turns slowly.
   vec2 cloud = uCloudC + (rot(uTime * 0.035 * (0.6 + seed)) * aCloud) * uCloudS;
@@ -160,7 +171,7 @@ void main() {
   float inFlight = sin(e * PI);
 
   // Hero to replay: a wave from left to right.
-  float w = smooth01(uScene * 1.7 - (aHero.x / uRes.x) * 0.55 - seed * 0.15);
+  float w = smooth01(uScene * 1.7 - (hero.x / uRes.x) * 0.55 - seed * 0.15);
   vec2 pos = mix(hero, replay, w);
 
   // Waste: kept tokens settle, waste falls under gravity into the heap, call by call.
@@ -230,7 +241,13 @@ void main() {
   // The ring has a slow sweep of light, like a recording head.
   float sweep = exp(-pow(mod(ang - uTime * 0.9, 2.0 * PI) - PI, 2.0) * 1.2);
 
-  float shine = (0.55 + 0.45 * fract(seed * 7.13)) * mix(0.55 + 0.9 * place * place, 1.0, w);
+  // In the galaxy the newest tokens, out at the rim, glow brightest; the far side dims a little.
+  float rim = aGal.w * aGal.w;
+  float glow = (0.5 + 0.9 * rim) * mix(1.15, 0.75, clamp(g3.z * 0.5 + 0.5, 0.0, 1.0));
+  // Dots behind the headline step back, so the type stays crisp.
+  vec2 qd = max(uQuiet.xy - hero, hero - uQuiet.zw);
+  float quiet = mix(0.22, 1.0, smoothstep(0.0, 48.0, max(qd.x, qd.y)));
+  float shine = (0.55 + 0.45 * fract(seed * 7.13)) * mix(glow * quiet, 1.0, w);
   float twinkle = 1.0 + 0.18 * sin(uTime * (1.3 + seed * 2.0) + seed * 60.0);
   float base = mix(uAlpha.x, mix(uAlpha.z, uAlpha.y, e), w);
   base = mix(base, waste ? uAlpha.w : uAlpha.y, ws);
@@ -300,8 +317,7 @@ export function Field({ run, prices, marks, ctrl, onReady }: { run: FieldRun; pr
       return;
     }
 
-    const { count, meta, cloud, ring } = buildStatic(run);
-    const hero = new Float32Array(count * 2);
+    const { count, meta, cloud, ring, gal } = buildStatic(run);
     const replay = new Float32Array(count * 2);
     const waste = new Float32Array(count * 2);
 
@@ -317,7 +333,7 @@ export function Field({ run, prices, marks, ctrl, onReady }: { run: FieldRun; pr
       gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0);
       return b;
     };
-    const heroBuf = buffer(0, 2, hero, gl.DYNAMIC_DRAW);
+    buffer(0, 4, gal, gl.STATIC_DRAW);
     const replayBuf = buffer(1, 2, replay, gl.DYNAMIC_DRAW);
     buffer(2, 2, cloud, gl.STATIC_DRAW);
     buffer(3, 4, meta, gl.STATIC_DRAW);
@@ -326,7 +342,7 @@ export function Field({ run, prices, marks, ctrl, onReady }: { run: FieldRun; pr
 
     gl.useProgram(program);
     const u = (name: string) => gl.getUniformLocation(program, name);
-    const names = ["uRes", "uDpr", "uTime", "uScene", "uPlay", "uCloudC", "uCloudS", "uIgnite", "uModel", "uWaste", "uRing", "uRingG", "uMouse", "uMouseK", "uPull", "uPullK", "uSwirl", "uSink", "uSinkK", "uAlpha", "uRingA", "uF", "uDim", "uHide", "uOrigin"] as const;
+    const names = ["uRes", "uDpr", "uTime", "uScene", "uPlay", "uCloudC", "uCloudS", "uIgnite", "uModel", "uWaste", "uRing", "uRingG", "uMouse", "uMouseK", "uPull", "uPullK", "uSwirl", "uSink", "uSinkK", "uAlpha", "uRingA", "uF", "uDim", "uHide", "uOrigin", "uGal", "uView", "uQuiet"] as const;
     const loc = Object.fromEntries(names.map((n) => [n, u(n)])) as Record<(typeof names)[number], WebGLUniformLocation | null>;
 
     // Per-call data, set once.
@@ -364,14 +380,15 @@ export function Field({ run, prices, marks, ctrl, onReady }: { run: FieldRun; pr
       dpr = Math.min(2, window.devicePixelRatio || 1);
       el.width = Math.round(W * dpr);
       el.height = Math.round(H * dpr);
-      alpha[0] = toAlpha(layout(run, heroRects(run, W, H), hero, 11));
+      // The galaxy is dense at the core: its dots stay faint and add up to a glow.
+      const gf = galaxyFrame(W, H);
+      alpha[0] = Math.min(0.8, Math.max(0.34, (Math.PI * gf.r * gf.r * Math.sin(GALAXY.pitch)) / count / 6));
       alpha[1] = toAlpha(layout(run, replayRects(run, W, H), replay, 23));
       // The heap and the ring are dense on a small screen, so they may go fainter than the rest.
       alpha[3] = Math.max(0.12, Math.min(0.6, wasteLayout(run, W, H, waste, 37) / 6));
       const [rr, rt] = ringSize(W, H);
       ringA = Math.max(0.1, Math.min(0.9, (2 * Math.PI * rr * rt * 2) / count / 6));
       for (const [b, data] of [
-        [heroBuf, hero],
         [replayBuf, replay],
         [wasteBuf, waste],
       ] as const) {
@@ -386,6 +403,10 @@ export function Field({ run, prices, marks, ctrl, onReady }: { run: FieldRun; pr
     let dim = 0;
     let hide = 0;
     let origin = 0;
+    // The pointer tips the galaxy: yaw from left and right, pitch from up and down.
+    let yaw = 0;
+    let pitch = GALAXY.pitch;
+    const quietEl = () => document.querySelector<HTMLElement>("[data-quiet]");
     const s = { scene: ctrl.scene, play: ctrl.play, ignite: ctrl.ignite, mix: 0, pin: 0, pout: 0, waste: ctrl.waste, ring: ctrl.ring, mx: -9999, my: -9999, mk: 0, px: 0, py: 0, pk: 0, swirl: 0, sk: 0, sx: 0, sy: 0 };
     let raf = 0;
     let last = 0;
@@ -427,6 +448,10 @@ export function Field({ run, prices, marks, ctrl, onReady }: { run: FieldRun; pr
         s.my = ease(s.my, c.mouse.y - top, 16, dt);
       }
       s.mk = ease(s.mk, c.mouse.on ? Math.max(1 - s.scene, s.ring) : 0, 6, dt);
+      const gf = galaxyFrame(W, H);
+      const tip = c.mouse.on && s.scene < 0.5;
+      yaw = ease(yaw, tip ? Math.max(-1, Math.min(1, (c.mouse.x - gf.cx) / (W * 0.5))) * 0.28 : 0, 2.2, dt);
+      pitch = ease(pitch, GALAXY.pitch + (tip ? Math.max(-1, Math.min(1, (c.mouse.y - top - gf.cy) / (H * 0.5))) * 0.14 : 0), 2.2, dt);
       if (c.pull.on) {
         if (s.pk < 0.01) {
           s.px = c.pull.x;
@@ -479,6 +504,11 @@ export function Field({ run, prices, marks, ctrl, onReady }: { run: FieldRun; pr
       gl.uniform1f(loc.uDim, dim);
       gl.uniform1f(loc.uHide, hide);
       gl.uniform1f(loc.uOrigin, origin);
+      gl.uniform3f(loc.uGal, gf.cx, gf.cy, gf.r);
+      gl.uniform3f(loc.uView, t * GALAXY.spin, pitch, yaw);
+      const q = s.scene < 1 ? quietEl()?.getBoundingClientRect() : undefined;
+      if (q) gl.uniform4f(loc.uQuiet, q.left, q.top - top, q.right, q.bottom - top);
+      else gl.uniform4f(loc.uQuiet, -1e5, -1e5, -1e5, -1e5);
       gl.drawArrays(gl.POINTS, 0, count);
 
       if (!ready) {

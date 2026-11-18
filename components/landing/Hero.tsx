@@ -10,7 +10,7 @@ import { usd } from "@/lib/cost";
 import { useOpener } from "../Opener";
 import { Key, Logo } from "../ui";
 import type { FieldApi } from "./field/Field";
-import { HERO, tokensOf, type FieldRun } from "./field/layout";
+import { buildStatic, GALAXY, projectGalaxy, type FieldRun } from "./field/layout";
 
 export type DemoChip = {
   slug: string;
@@ -56,7 +56,7 @@ export function Hero({
 
   return (
     <section className="relative isolate flex h-svh min-h-[600px] flex-col" aria-label="Open a trace">
-      {/* The field's shape before WebGL runs, and with no JavaScript: the same columns, as CSS. */}
+      {/* The field's shape before WebGL runs, and with no JavaScript: the same galaxy, still. */}
       <Fallback run={run} hidden={fieldReady} />
 
       <nav className={`relative z-10 mx-auto flex h-14 w-full max-w-[1280px] items-center gap-6 px-5 transition-[opacity,filter,transform] duration-300 ease-out sm:px-8 ${fade}`} aria-label="Main">
@@ -72,12 +72,15 @@ export function Hero({
       </nav>
 
       <div className={`relative z-10 mx-auto w-full max-w-[1280px] px-5 pt-[clamp(28px,9svh,104px)] transition-[opacity,filter,transform] duration-300 ease-out sm:px-8 ${fade}`}>
-        <h1 className="max-w-[12ch] text-balance text-[clamp(44px,7.4vw,96px)] font-semibold leading-[0.96] tracking-[-0.04em]" style={{ fontFamily: "var(--font-display)" }}>
-          Know where every token goes.
-        </h1>
-        <p className="mt-6 max-w-[54ch] text-pretty text-[16px] leading-relaxed text-ink-2 sm:text-[18px]">
-          Drop in one trace. Blackbox replays every LLM call, prices every token and shows you what to fix. The trace stays on your machine.
-        </p>
+        {/* The galaxy's dots step back behind this box, so the type stays crisp over them. */}
+        <div data-quiet className="w-fit">
+          <h1 className="max-w-[12ch] text-balance text-[clamp(44px,7.4vw,96px)] font-semibold leading-[0.96] tracking-[-0.04em]" style={{ fontFamily: "var(--font-display)" }}>
+            Know where every token goes.
+          </h1>
+          <p className="mt-6 max-w-[54ch] text-pretty text-[16px] leading-relaxed text-ink-2 sm:text-[18px]">
+            Drop in one trace. Blackbox replays every LLM call, prices every token and shows you what to fix. The trace stays on your machine.
+          </p>
+        </div>
         {/* The demos are the main way in: one click and the visitor is inside the real tool. */}
         <p className="mt-8 text-[14px] font-medium text-ink">
           Open a demo run <span className="font-normal text-ink-3">· click one, or drag it into the field</span>
@@ -106,12 +109,11 @@ export function Hero({
       </div>
 
       <p
-        className={`pointer-events-none absolute right-5 z-10 hidden max-w-[30ch] text-right text-[13px] leading-relaxed text-ink-2 transition-opacity duration-300 sm:right-8 md:block ${launching ? "opacity-0" : ""}`}
-        style={{ bottom: `calc(${HERO.maxH * 100}svh + 20px)` }}
+        className={`pointer-events-none absolute bottom-7 right-5 z-10 hidden max-w-[34ch] text-right text-[13px] leading-relaxed text-ink-2 transition-opacity duration-300 sm:right-8 md:block ${launching ? "opacity-0" : ""}`}
       >
-        Each dot is one token. Scroll, and follow a sample support agent from its first call to its bill:{" "}
+        Each dot is one token of a sample support agent. Its run spirals out from the first call at the core to the last at the rim:{" "}
         <span className="text-ink tnum">{tokenCount.toLocaleString("en-US")}</span> tokens, {run.calls.length} LLM calls,{" "}
-        <span className="font-mono text-rec">{usd(total)}</span>.
+        <span className="font-mono text-rec">{usd(total)}</span>. Scroll to replay it.
       </p>
     </section>
   );
@@ -219,20 +221,42 @@ function FileMark() {
   );
 }
 
-/** The hero columns as CSS, with the same numbers as the WebGL layout. */
+/**
+ * The galaxy as a still SVG: a sample of the same dots, projected the same way as the WebGL field
+ * at its first frame, so the hand-off is seamless. It is also the hero with no WebGL, with reduced
+ * motion, and with no JavaScript.
+ */
 function Fallback({ run, hidden }: { run: FieldRun; hidden: boolean }) {
-  const n = run.calls.length;
-  const most = Math.max(...run.calls.map(tokensOf));
-  const w = (100 - HERO.pad * 200 - HERO.gap * 100 * (n - 1)) / n;
+  const { gal, count } = buildStatic(run);
+  const dots: { x: number; y: number; o: number }[] = [];
+  const step = Math.max(1, Math.floor(count / 1300));
+  for (let k = 0; k < count; k += step) {
+    const p = projectGalaxy(gal[k * 4], gal[k * 4 + 1], gal[k * 4 + 2], 0);
+    const t = gal[k * 4 + 3];
+    dots.push({ x: p.x, y: p.y, o: Math.min(0.9, 0.18 + 0.55 * t * t + (gal[k * 4] < 0.12 ? 0.35 : 0)) });
+  }
+  // The box spans 1.6 radii each way, the reach of the halo. Its place and size follow galaxyFrame:
+  // the radius is the smaller of rW x width and rH x height. One SVG, placed by breakpoint.
+  const d = GALAXY.desk;
+  const m = GALAXY.phone;
+  const vars = {
+    ["--dl" as string]: `${d.cx * 100}%`,
+    ["--dt" as string]: `${d.cy * 100}%`,
+    ["--dw" as string]: `min(${d.rW * 320}vw, ${d.rH * 320}svh)`,
+    ["--ml" as string]: `${m.cx * 100}%`,
+    ["--mt" as string]: `${m.cy * 100}%`,
+    ["--mw" as string]: `min(${m.rW * 320}vw, ${m.rH * 320}svh)`,
+  };
   return (
-    <div className={`pointer-events-none absolute inset-0 -z-10 transition-opacity duration-700 ease-out ${hidden ? "opacity-0" : ""}`} aria-hidden>
-      {run.calls.map((c, i) => (
-        <div
-          key={i}
-          className="field-dots absolute bottom-0 h-[calc(var(--col)*40svh)] sm:h-[calc(var(--col)*52svh)]"
-          style={{ left: `${HERO.pad * 100 + i * (w + HERO.gap * 100)}%`, width: `${w}%`, ["--col" as string]: tokensOf(c) / most }}
-        />
-      ))}
+    <div className={`pointer-events-none absolute inset-0 -z-10 overflow-hidden transition-opacity duration-700 ease-out ${hidden ? "opacity-0" : ""}`} style={vars} aria-hidden>
+      <svg
+        viewBox="-1.6 -1.6 3.2 3.2"
+        className="absolute left-[var(--ml)] top-[var(--mt)] aspect-square w-[var(--mw)] -translate-x-1/2 -translate-y-1/2 sm:left-[var(--dl)] sm:top-[var(--dt)] sm:w-[var(--dw)]"
+      >
+        {dots.map((p, i) => (
+          <circle key={i} cx={p.x.toFixed(3)} cy={p.y.toFixed(3)} r="0.0038" fill="#ededef" fillOpacity={p.o.toFixed(2)} />
+        ))}
+      </svg>
     </div>
   );
 }

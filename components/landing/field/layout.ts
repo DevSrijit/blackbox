@@ -28,8 +28,51 @@ export const KIND_OUTPUT = 2;
 export const tokensOf = (c: FieldCall) => c.prompt + c.output;
 export const countOf = (run: FieldRun) => run.calls.reduce((a, c) => a + tokensOf(c), 0);
 
-/** The hero columns. Shared with the CSS fallback in Hero.tsx. */
-export const HERO = { pad: 0.022, gap: 0.004, maxH: 0.52, maxHPhone: 0.4, phone: 640 };
+/** Below this width the layouts use their phone shape. */
+export const HERO = { phone: 640 };
+
+/**
+ * The hero galaxy. The run spirals out from the core: the first call at the center, the last at
+ * the rim, and a call with more tokens takes a longer stretch of arm. Center and radius are shares
+ * of the screen; the radius is the smaller of rW x width and rH x height. Shared with the still
+ * fallback in Hero.tsx, so both draw the same galaxy.
+ */
+export const GALAXY = {
+  desk: { cx: 0.66, cy: 0.47, rW: 0.4, rH: 0.75 },
+  phone: { cx: 0.5, cy: 0.88, rW: 0.75, rH: 0.4 },
+  /** How far the disk tips toward the viewer, in radians. 0 is edge on. */
+  pitch: 0.52,
+  turns: 1.55,
+  /** Radians per second. */
+  spin: 0.035,
+  /** Share of the tokens in the faint halo around the disk. */
+  halo: 0.07,
+};
+
+export const galaxyFrame = (W: number, H: number) => {
+  const g = W < HERO.phone ? GALAXY.phone : GALAXY.desk;
+  return { cx: W * g.cx, cy: H * g.cy, r: Math.min(W * g.rW, H * g.rH) };
+};
+
+/**
+ * One galaxy point on screen, in units of the radius from the center. The same math runs in the
+ * vertex shader. `rot` is the spin angle, `yaw` and `pitch` the view.
+ */
+export function projectGalaxy(r: number, th: number, z: number, rot: number, pitch = GALAXY.pitch, yaw = 0) {
+  const a = th + rot;
+  let x = Math.cos(a) * r;
+  let y = z;
+  let d = Math.sin(a) * r;
+  const cy = Math.cos(yaw);
+  const sy = Math.sin(yaw);
+  [x, d] = [cy * x + sy * d, -sy * x + cy * d];
+  const cp = Math.cos(pitch);
+  const sp = Math.sin(pitch);
+  [y, d] = [cp * y - sp * d, sp * y + cp * d];
+  // Mild perspective, kept far from the camera, so no dot can blow up toward it.
+  const k = 1 / (1 + Math.max(-1.5, Math.min(1.5, d)) * 0.16);
+  return { x: x * k, y: y * k, depth: d };
+}
 /** The replay timeline. */
 export const REPLAY = { pad: 0.06, padMin: 20, base: 0.84, maxH: 0.42, maxHPhone: 0.34 };
 /** The waste heap, under the timeline's baseline. */
@@ -61,6 +104,10 @@ export function buildStatic(run: FieldRun) {
   const meta = new Float32Array(count * 4);
   const cloud = new Float32Array(count * 2);
   const ring = new Float32Array(count * 2);
+  // The galaxy, per dot: radius, angle, height above the disk, and place in the run (0..1).
+  const gal = new Float32Array(count * 4);
+  const grand = rng(31);
+  const gauss = () => Math.sqrt(-2 * Math.log(Math.max(1e-9, grand()))) * Math.cos(2 * Math.PI * grand());
   const rand = rng(7);
   let k = 0;
   run.calls.forEach((c, i) => {
@@ -80,9 +127,31 @@ export function buildStatic(run: FieldRun) {
       // The ring: an angle, and a soft offset across the band.
       ring[k * 2] = rand() * Math.PI * 2;
       ring[k * 2 + 1] = (rand() + rand() + rand() - 1.5) / 1.5;
+      const t = k / Math.max(1, count - 1);
+      if (grand() < GALAXY.halo) {
+        // The halo: faint dust around the disk.
+        gal[k * 4] = Math.min(1.5, 0.95 + Math.abs(gauss()) * 0.3);
+        gal[k * 4 + 1] = grand() * Math.PI * 2;
+        gal[k * 4 + 2] = gauss() * 0.16;
+      } else if (t < 0.045) {
+        // The core: the first call, a round bulge. A 3D gaussian ball, so no dots pile up on one axis.
+        const bx = gauss() * 0.06;
+        const bd = gauss() * 0.06;
+        gal[k * 4] = Math.hypot(bx, bd);
+        gal[k * 4 + 1] = Math.atan2(bd, bx);
+        gal[k * 4 + 2] = gauss() * 0.045;
+      } else {
+        // Two arms. The run winds outward along them, in token order.
+        const r = 0.08 + 0.92 * Math.pow(t, 0.72);
+        // Tight arms near the core, a little looser at the rim, so the spiral reads.
+        gal[k * 4] = Math.max(0, r + gauss() * (0.012 + 0.035 * r));
+        gal[k * 4 + 1] = t * GALAXY.turns * Math.PI * 2 + (k % 2) * Math.PI + gauss() * (0.05 + 0.05 * r);
+        gal[k * 4 + 2] = gauss() * (0.03 - 0.015 * r);
+      }
+      gal[k * 4 + 3] = t;
     }
   });
-  return { count, meta, cloud, ring };
+  return { count, meta, cloud, ring, gal };
 }
 
 type Rect = { x: number; y: number; w: number; h: number };
@@ -103,19 +172,6 @@ function grid(n: number, r: Rect, rand: () => number) {
 function fill(out: Float32Array, at: number, n: number, r: Rect, rand: () => number) {
   const put = grid(n, r, rand);
   for (let k = 0; k < n; k++) put(k, out, at + k);
-}
-
-export function heroRects(run: FieldRun, W: number, H: number): Rect[] {
-  const n = run.calls.length;
-  const pad = W * HERO.pad;
-  const gap = W * HERO.gap;
-  const w = (W - pad * 2 - gap * (n - 1)) / n;
-  const maxH = H * (W < HERO.phone ? HERO.maxHPhone : HERO.maxH);
-  const most = Math.max(...run.calls.map(tokensOf));
-  return run.calls.map((c, i) => {
-    const h = (maxH * tokensOf(c)) / most;
-    return { x: pad + i * (w + gap), y: H - h, w, h };
-  });
 }
 
 export function replayRects(run: FieldRun, W: number, H: number): Rect[] {
