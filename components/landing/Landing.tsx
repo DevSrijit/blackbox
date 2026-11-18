@@ -1,169 +1,195 @@
 "use client";
 
-import Link from "next/link";
-import { usd } from "@/lib/cost";
+// The landing page. The hero takes a trace or a demo. Below it, one token field runs through the
+// scroll scenes: one WebGL canvas, pinned behind the content, driven by scroll and the pointer.
+
+import { AnimatePresence, motion, useMotionValue, useMotionValueEvent, useScroll } from "motion/react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useOpener } from "../Opener";
-import { Key, Logo } from "../ui";
-import { HeroTape, type HeroData } from "./HeroTape";
+import { Field, makeField } from "./field/Field";
+import type { FieldRun } from "./field/layout";
+import { Hero, SINK_MS, wait, type DemoChip } from "./Hero";
+import { Replay, type Failure } from "./Replay";
+import { Leaks, Models, Outro, Overlay, Price, Waiting, type Showcase } from "./Scenes";
 
-export type { HeroData };
-
-export type DemoCard = {
-  slug: string;
-  title: string;
-  description: string;
-  cost: number;
-  saving: number;
-  calls: number;
-  seconds: number;
-  cached: number;
-  /** The spend line, normalised: [time 0..1, share of total 0..1]. */
-  curve: [number, number][];
-};
+export type { DemoChip, Failure, FieldRun, Showcase };
 
 const GITHUB = "https://github.com/DevSrijit/blackbox";
 
-export function Landing({ demos, hero, modelCount }: { demos: DemoCard[]; hero: HeroData; modelCount: number }) {
-  const { openFile } = useOpener();
+// The field runs only with WebGL2 and with motion allowed. Otherwise every scene is a still frame.
+const REDUCE = "(prefers-reduced-motion: reduce)";
+let webgl: boolean | null = null;
+function canRun() {
+  if (window.matchMedia(REDUCE).matches) return false;
+  if (webgl === null) {
+    const gl = document.createElement("canvas").getContext("webgl2");
+    webgl = !!gl;
+    gl?.getExtension("WEBGL_lose_context")?.loseContext();
+  }
+  return webgl;
+}
+function onMotionChange(cb: () => void) {
+  const m = window.matchMedia(REDUCE);
+  m.addEventListener("change", cb);
+  return () => m.removeEventListener("change", cb);
+}
+
+export function Landing({
+  run,
+  chips,
+  failure,
+  total,
+  tokenCount,
+  showcase,
+}: {
+  run: FieldRun;
+  chips: DemoChip[];
+  failure: Failure | null;
+  total: number;
+  tokenCount: number;
+  showcase: Showcase;
+}) {
+  const router = useRouter();
+  const { load, registerDropTarget } = useOpener();
+  const [{ ctrl, api }] = useState(makeField);
+
+  const capable = useSyncExternalStore(onMotionChange, canRun, () => false);
+  const [failed, setFailed] = useState(false);
+  const live = capable && !failed;
+  const [ready, setReady] = useState(false);
+  const [launching, setLaunching] = useState(false);
+  const [fileOver, setFileOver] = useState(false);
+  const labelX = useMotionValue(0);
+  const labelY = useMotionValue(0);
+
+  // Scrolling the hero away moves the field from the hero columns into the replay scene.
+  const hero = useRef<HTMLDivElement>(null);
+  const { scrollYProgress: heroOut } = useScroll({ target: hero, offset: ["start start", "end start"] });
+  useMotionValueEvent(heroOut, "change", (p) => {
+    api.scene(p);
+  });
+
+  const launch = (href: string, x: number, y: number) => {
+    if (!live) {
+      router.push(href);
+      return;
+    }
+    setLaunching(true);
+    api.pullOff();
+    api.sink(x, y);
+    router.prefetch(href);
+    setTimeout(() => router.push(href), SINK_MS);
+  };
+
+  // A file dragged over the page pulls the field toward the pointer. A drop sinks it there.
+  // Opening a demo leaves this page in its launch state: copy faded, dots sunk into one point.
+  // Next.js keeps the page mounted in the background, so the state resets when the page is put
+  // away, and the visitor finds the landing whole when they come back.
+  useEffect(
+    () => () => {
+      setLaunching(false);
+      setFileOver(false);
+      api.sinkOff();
+      api.pullOff();
+      api.mouseOff();
+    },
+    [api],
+  );
+
+  useEffect(() => {
+    if (!live) return;
+    return registerDropTarget({
+      enter: () => setFileOver(true),
+      over: (x, y) => {
+        api.pull(x, y);
+        labelX.set(x);
+        labelY.set(y);
+      },
+      leave: () => {
+        api.pullOff();
+        setFileOver(false);
+      },
+      drop: async (file, x, y) => {
+        api.pullOff();
+        setFileOver(false);
+        api.sink(x, y);
+        setLaunching(true);
+        const ok = await load(file, () => wait(SINK_MS));
+        if (!ok) {
+          api.sinkOff();
+          setLaunching(false);
+        }
+      },
+    });
+  }, [live, load, registerDropTarget, labelX, labelY, api]);
 
   return (
     <div className="min-h-dvh">
-      <nav className="mx-auto flex h-14 max-w-[1120px] items-center gap-6 px-5 sm:px-8" aria-label="Main">
-        <Link href="/" className="-ml-1 flex items-center gap-2 rounded-md px-1 py-1">
-          <Logo />
-          <span className="text-[14px] font-semibold tracking-[-0.01em]">Blackbox</span>
-        </Link>
-        <div className="ml-auto flex items-center gap-1 text-[13px]">
-          <a href="#demos" className="hidden rounded-md px-2.5 py-1.5 text-ink-2 transition-colors hover:text-ink sm:block">
-            Demos
-          </a>
-          <a href={GITHUB} target="_blank" rel="noreferrer" className="rounded-md px-2.5 py-1.5 text-ink-2 transition-colors hover:text-ink">
+      {/* The pointer pushes the dots wherever the field allows it: the hero and the ring. */}
+      <div
+        className="relative"
+        onPointerMove={(e) => {
+          if (e.pointerType === "mouse" && live) api.mouse(e.clientX, e.clientY);
+        }}
+        onPointerLeave={api.mouseOff}
+      >
+        {live && (
+          // The layer spans the whole stage, so the pinned canvas lets go exactly where the last scene ends.
+          <div className="pointer-events-none absolute inset-0">
+            <div className="sticky top-0 h-svh">
+              <Field run={run} prices={showcase.prices} marks={showcase.marks} ctrl={ctrl} onReady={(ok) => (ok ? setReady(true) : setFailed(true))} />
+              <Overlay run={run} data={showcase} failure={failure} field={api} />
+            </div>
+          </div>
+        )}
+        <div ref={hero}>
+          <Hero run={run} chips={chips} live={live} fieldReady={live && ready} field={api} launching={launching} onLaunch={launch} tokenCount={tokenCount} total={total} />
+        </div>
+        <Replay run={run} failure={failure} total={total} live={live} field={api} />
+        <Waiting run={run} data={showcase} total={total} field={api} live={live} />
+        <Price run={run} data={showcase} total={total} field={api} live={live} />
+        <Models run={run} data={showcase} total={total} field={api} live={live} />
+        <Leaks run={run} data={showcase} total={total} field={api} live={live} />
+        <Outro live={live} field={api} chips={chips} />
+      </div>
+
+      <div className="mx-auto max-w-[1280px] px-5 sm:px-8">
+        <p className="max-w-[64ch] pb-10 pt-16 text-pretty text-[13px] leading-relaxed text-ink-3">
+          Blackbox reads OpenTelemetry JSON (GenAI or OpenInference attributes), JSON lines of OpenAI or OpenRouter calls, and its own format, up to 50 MB. It reads the file in your browser and stores nothing. It prices runs on {showcase.modelCount} OpenRouter models, and re-pricing always keeps the recorded tokens.
+        </p>
+        <footer className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-hair py-6 text-[13px] text-ink-3">
+          <span>
+            Built by{" "}
+            <a href="https://github.com/DevSrijit" target="_blank" rel="noreferrer" className="text-ink-2 transition-colors hover:text-ink">
+              Srijit Ghosh
+            </a>
+          </span>
+          <a href={GITHUB} target="_blank" rel="noreferrer" className="transition-colors hover:text-ink">
             Source
           </a>
-          <button type="button" onClick={openFile} className="ml-2 rounded-lg px-3 py-1.5 text-ink shadow-[inset_0_0_0_1px_var(--hair-2)] transition-[background-color,transform] duration-150 ease-out hover:bg-white/[0.05] active:scale-[0.97]">
-            Open a trace
-          </button>
-        </div>
-      </nav>
-
-      <main>
-        <section className="mx-auto max-w-[1120px] px-5 pb-10 pt-12 sm:px-8 sm:pt-16">
-          <h1 className="max-w-[15ch] text-balance text-[42px] font-semibold leading-[1.02] tracking-[-0.035em] sm:text-[64px]" style={{ fontFamily: "var(--font-display)" }}>
-            A flight recorder for AI agents.
-          </h1>
-          <p className="mt-5 max-w-[54ch] text-pretty text-[16px] leading-relaxed text-ink-2 sm:text-[18px]">
-            Replay one agent run, step by step. See the cost of each LLM call. Find the waste. Price the same run on any of {modelCount} OpenRouter models.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link
-              href={`/demo/${hero.slug}`}
-              className="group flex items-center gap-2 rounded-lg bg-ink px-4 py-2.5 text-[14px] font-medium text-bg transition-[background-color,transform] duration-150 ease-out hover:bg-white active:scale-[0.97]"
-            >
-              Watch a demo
-              <svg viewBox="0 0 12 12" className="size-3 transition-transform duration-200 ease-out group-hover:translate-x-0.5" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-                <path d="M2.5 6h7M6.5 3l3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </Link>
-            <button
-              type="button"
-              onClick={openFile}
-              className="flex items-center gap-2 rounded-lg px-4 py-2.5 text-[14px] text-ink shadow-[inset_0_0_0_1px_var(--hair-2)] transition-[background-color,transform] duration-150 ease-out hover:bg-white/[0.05] active:scale-[0.97]"
-            >
-              Open a trace
-              <Key>⌘O</Key>
-            </button>
-          </div>
-          <p className="mt-4 text-[13px] text-ink-3">Runs in your browser. No account. Your trace stays on your machine.</p>
-        </section>
-
-        <section className="mx-auto max-w-[1120px] px-5 sm:px-8" aria-label="A replay of the billing agent demo">
-          <HeroTape data={hero} />
-          <p className="mt-3 text-pretty text-[13px] text-ink-3">
-            The billing agent demo: the run as it happened, then the same calls priced on {hero.model}.{" "}
-            <Link href={`/demo/${hero.slug}`} className="text-ink-2 underline decoration-white/20 underline-offset-[3px] transition-colors hover:text-ink">
-              Open it
-            </Link>
-          </p>
-        </section>
-
-        <section id="demos" className="mx-auto max-w-[1120px] scroll-mt-8 px-5 pb-24 pt-24 sm:px-8 sm:pt-32">
-          <h2 className="text-[24px] font-semibold tracking-[-0.025em] sm:text-[28px]">Recorded runs</h2>
-          <p className="mt-2 max-w-[56ch] text-pretty text-[15px] leading-relaxed text-ink-2">Two agents that waste money, and one that does not. Open one to replay it, find the waste, and price it on another model.</p>
-          <ul className="mt-8 border-t border-hair">
-            {demos.map((d) => (
-              <li key={d.slug} className="border-b border-hair">
-                <Link
-                  href={`/demo/${d.slug}`}
-                  className="group -mx-3 grid grid-cols-1 items-center gap-x-8 gap-y-4 rounded-xl px-3 py-6 transition-colors duration-150 hover:bg-white/[0.025] sm:grid-cols-[180px_minmax(0,1fr)_auto]"
-                >
-                  <Thumb curve={d.curve} />
-                  <span className="min-w-0">
-                    <span className="flex items-center gap-2 text-[16px] font-medium text-ink">
-                      {d.title}
-                      <svg viewBox="0 0 12 12" className="size-3 text-ink-3 transition-[transform,color] duration-200 ease-out group-hover:translate-x-0.5 group-hover:text-ink" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden>
-                        <path d="M2.5 6h7M6.5 3l3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </span>
-                    <span className="mt-1 block max-w-[62ch] text-pretty text-[14px] leading-relaxed text-ink-2">{d.description}</span>
-                  </span>
-                  <span className="flex gap-6 text-[13px] text-ink-3 tnum sm:flex-col sm:gap-1 sm:text-right">
-                    <span>
-                      <span className="font-mono text-rec">{usd(d.cost)}</span> per run
-                    </span>
-                    <span>{d.saving > 0.0005 ? <>about {Math.round((d.saving / d.cost) * 100)}% waste</> : <>{Math.round(d.cached * 100)}% cached input</>}</span>
-                    <span>
-                      {d.calls} LLM calls, {d.seconds.toFixed(0)} s
-                    </span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-
-          <p className="mt-10 max-w-[64ch] text-pretty text-[14px] leading-relaxed text-ink-2">
-            Use your own run: Blackbox reads OpenTelemetry JSON (GenAI or OpenInference attributes) and JSON lines of OpenAI or OpenRouter chat calls.{" "}
-            <button type="button" onClick={openFile} className="text-ink underline decoration-white/25 underline-offset-[3px] transition-colors hover:decoration-white/60">
-              Open a trace
-            </button>{" "}
-            or drop a file anywhere on this page.
-          </p>
-        </section>
-      </main>
-
-      {/* The rule spans the content width, not the padding around it. */}
-      <div className="mx-auto max-w-[1120px] px-5 sm:px-8">
-      <footer className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-hair py-6 text-[13px] text-ink-3">
-        <span>
-          Built by{" "}
-          <a href="https://github.com/DevSrijit" target="_blank" rel="noreferrer" className="text-ink-2 transition-colors hover:text-ink">
-            Srijit Ghosh
-          </a>
-        </span>
-        <a href={GITHUB} target="_blank" rel="noreferrer" className="transition-colors hover:text-ink">
-          Source
-        </a>
-        <span className="ml-auto">Prices from OpenRouter, refreshed every hour</span>
-      </footer>
+          <span className="ml-auto">Prices from OpenRouter, refreshed every hour</span>
+        </footer>
       </div>
-    </div>
-  );
-}
 
-/** A demo's spend line, small. The real curve of that run, not a decoration. */
-function Thumb({ curve }: { curve: [number, number][] }) {
-  let d = "M0,40";
-  let y = 40;
-  for (const [t, c] of curve) {
-    const x = (t * 180).toFixed(1);
-    d += ` L${x},${y.toFixed(1)}`;
-    y = 40 - c * 32;
-    d += ` L${x},${y.toFixed(1)}`;
-  }
-  d += ` L180,${y.toFixed(1)}`;
-  return (
-    <svg viewBox="0 0 180 44" className="h-11 w-[180px] overflow-visible" aria-hidden>
-      <path d={`M0,40 L180,40`} stroke="var(--hair-2)" strokeWidth="1" />
-      <path d={d} fill="none" stroke="#ff5f1f" strokeWidth="1.5" strokeLinejoin="round" className="opacity-70 transition-opacity duration-200 group-hover:opacity-100" />
-    </svg>
+      {/* The drop label rides with the pointer while a file is over the page. */}
+      <AnimatePresence>
+        {fileOver && (
+          <motion.div
+            className="pointer-events-none fixed left-0 top-0 z-50"
+            style={{ x: labelX, y: labelY }}
+            initial={{ opacity: 0, scale: 0.9, filter: "blur(4px)" }}
+            animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.12 } }}
+            transition={{ duration: 0.22, ease: [0.23, 1, 0.32, 1] }}
+          >
+            <div className="ml-5 mt-5 w-max rounded-xl bg-raised/85 px-3.5 py-2.5 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.9),inset_0_0_0_1px_var(--hair-2)] backdrop-blur-md">
+              <div className="text-[14px] font-medium text-ink">Release to replay</div>
+              <div className="mt-0.5 text-[12px] text-ink-3">The file stays in your browser.</div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

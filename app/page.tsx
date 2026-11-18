@@ -1,46 +1,110 @@
-import { Landing, type DemoCard, type HeroData } from "@/components/landing/Landing";
-import { allOn, costCurve, priceMap, totals, traceCost } from "@/lib/cost";
+import { Landing, type DemoChip, type FieldRun, type Showcase } from "@/components/landing/Landing";
+import { countOf, wasteCount } from "@/components/landing/field/layout";
+import { allOn, findModel, priceMap, spanCost, totals, traceCost } from "@/lib/cost";
 import { DEMOS } from "@/lib/demos";
-import { combinedSaving, findings } from "@/lib/findings";
+import { getFeatured } from "@/lib/featured";
+import { combinedSaving, estTokens, findings, type Finding } from "@/lib/findings";
 import { getModels } from "@/lib/models";
 
-/** The model the hero re-prices the billing run on. About half the price, so the new line sits mid-height, as on the share image. */
-const HERO_MODEL = "anthropic/claude-sonnet-5.5";
+/** One line that says what a demo run shows, from its biggest finding. */
+function hookFor(f: Finding | undefined) {
+  if (!f) return "Caches well. A clean run to compare with.";
+  if (f.kind === "cache") return f.title.startsWith("Prompt caching stops") ? "Its prompt cache breaks halfway through." : "Resends its whole conversation on every call.";
+  if (f.kind === "loop") return "Calls the same tool again and again.";
+  if (f.kind === "retry") return "Pays for a step that failed.";
+  if (f.kind === "premium") return "Uses a premium model for short answers.";
+  return "Sends heavy tool definitions on every call.";
+}
+
+/** How many models the sweep shows, after the run as recorded. */
+const SWEEP = 10;
 
 export default async function Home() {
   const { models } = await getModels();
   const prices = priceMap(models);
 
-  const demos: DemoCard[] = DEMOS.map((d) => {
-    const total = traceCost(d, prices);
-    const tot = totals(d);
-    const curve = costCurve(d, prices);
+  const chips: DemoChip[] = DEMOS.map((d) => {
+    const cost = traceCost(d, prices);
+    const found = findings(d, prices);
     return {
       slug: d.id,
-      title: d.title,
-      description: d.description ?? "",
-      cost: total,
-      saving: combinedSaving(findings(d, prices), total),
-      calls: tot.llmCalls,
-      seconds: tot.duration / 1000,
-      cached: tot.cacheHit,
-      curve: curve.map((p) => [p.t / tot.duration, p.c / Math.max(1e-9, total)] as [number, number]),
+      file: `${d.id}.json`,
+      kb: Math.max(1, Math.round(JSON.stringify(d).length / 1024)),
+      cost,
+      calls: totals(d).llmCalls,
+      hook: hookFor(found[0]),
+      saving: combinedSaving(found, cost),
     };
   });
 
+  // The field draws the billing agent run, one dot per token.
   const hero = DEMOS[0];
-  const tot = totals(hero);
-  const heroData: HeroData = {
-    slug: hero.id,
-    title: hero.title,
-    duration: tot.duration,
-    model: HERO_MODEL.split("/")[1],
-    recorded: costCurve(hero, prices).map((p) => [p.t, p.c] as [number, number]),
-    repriced: costCurve(hero, prices, allOn(hero, HERO_MODEL)).map((p) => [p.t, p.c] as [number, number]),
-    calls: hero.spans
-      .filter((s) => s.kind === "llm" && s.usage)
-      .map((s) => ({ start: s.start, end: s.end, input: s.usage!.input + s.usage!.cacheWrite, cached: s.usage!.cacheRead })),
+  const fs = findings(hero, prices);
+  const flagged = (kind: string) => new Set(fs.filter((f) => f.kind === kind).flatMap((f) => f.spans));
+  const resentIds = flagged("cache");
+  const repeatIds = new Set([...flagged("loop"), ...flagged("retry")]);
+
+  const llm = hero.spans.filter((s) => s.kind === "llm" && s.usage).sort((a, b) => a.start - b.start);
+  const prev = new Map<string, number>();
+  const run: FieldRun = {
+    duration: totals(hero).duration,
+    calls: llm.map((s) => {
+      const u = s.usage!;
+      const prompt = u.input + u.cacheRead + u.cacheWrite;
+      const parent = s.parentId ?? "root";
+      // The same rule as the cache finding: the part of the input that repeats the call before it.
+      const resent = resentIds.has(s.id) ? Math.min(prev.get(parent) ?? 0, u.input) : 0;
+      prev.set(parent, prompt);
+      return { name: s.name, model: s.model ?? "", start: s.start, end: s.end, prompt, output: u.output, resent, repeat: repeatIds.has(s.id), cost: spanCost(s, prices) };
+    }),
+  };
+  const fail = hero.spans.find((s) => s.status === "error");
+  const total = traceCost(hero, prices);
+
+  // The sweep: the run's own models and the most used models on OpenRouter, priced on this run.
+  const featured = await getFeatured(models);
+  const recordedIds = [...new Set(llm.map((s) => s.model ?? ""))];
+  const ids = [...new Set([...recordedIds, ...featured.models.map((f) => f.id)])];
+  const sweep = ids
+    .map((id) => ({ id, m: findModel(prices, id) }))
+    .filter((x): x is { id: string; m: NonNullable<typeof x.m> } => !!x.m)
+    .slice(0, SWEEP)
+    .map(({ id, m }) => ({ id, pin: m.prompt, pout: m.completion, total: traceCost(hero, prices, allOn(hero, id)) }))
+    .sort((a, b) => b.total - a.total);
+
+  const showcase: Showcase = {
+    prices: llm.map((s) => {
+      const m = findModel(prices, s.model);
+      return { pin: m?.prompt ?? 0, pout: m?.completion ?? 0 };
+    }),
+    recorded: recordedIds.flatMap((id) => {
+      const m = findModel(prices, id);
+      return m ? [{ id, pin: m.prompt, pout: m.completion, calls: llm.flatMap((s, i) => (s.model === id ? [i] : [])) }] : [];
+    }),
+    sweep,
+    findings: fs.map((f) => ({ kind: f.kind, title: f.title, saving: f.saving })),
+    // Which finding each call belongs to, so the field can light that group alone.
+    marks: llm.map((s) => ({
+      group: (flagged("loop").has(s.id) ? 1 : 0) | (flagged("retry").has(s.id) ? 2 : 0) | (flagged("premium").has(s.id) ? 4 : 0),
+      tools: s.tools?.length ? Math.min(s.usage!.input + s.usage!.cacheRead + s.usage!.cacheWrite, estTokens(JSON.stringify(s.tools))) : 0,
+    })),
+    tools: hero.spans
+      .filter((s) => s.kind === "tool")
+      .sort((a, b) => a.start - b.start)
+      .map((s) => ({ name: s.name, ms: s.end - s.start, failed: s.status === "error" })),
+    saving: combinedSaving(fs, total),
+    wasteTokens: wasteCount(run),
+    modelCount: models.length,
   };
 
-  return <Landing demos={demos} hero={heroData} modelCount={models.length} />;
+  return (
+    <Landing
+      run={run}
+      chips={chips}
+      failure={fail ? { name: fail.name, start: fail.start, end: fail.end } : null}
+      total={total}
+      tokenCount={countOf(run)}
+      showcase={showcase}
+    />
+  );
 }

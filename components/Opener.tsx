@@ -9,8 +9,27 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { parseTrace, TraceError } from "@/lib/adapters";
 import { setOpened } from "@/lib/opened";
 
-type Ctx = { openFile: () => void; version: number };
-const OpenerContext = createContext<Ctx>({ openFile: () => {}, version: 0 });
+/**
+ * A page can take over file drops: the landing hero draws its own drop state. While a target is
+ * registered, the generic overlay stays hidden and the target gets the pointer and the file.
+ */
+export type DropTarget = {
+  enter: () => void;
+  /** The pointer moved during a file drag. Called on every dragover, so keep it cheap. */
+  over: (x: number, y: number) => void;
+  leave: () => void;
+  /** The target plays its own animation, then calls `load`. */
+  drop: (file: File, x: number, y: number) => void;
+};
+
+type Ctx = {
+  openFile: () => void;
+  version: number;
+  /** Reads the file and opens it at /trace. `before` runs after a good parse and before the route change. */
+  load: (file: File, before?: () => Promise<void>) => Promise<boolean>;
+  registerDropTarget: (t: DropTarget) => () => void;
+};
+const OpenerContext = createContext<Ctx>({ openFile: () => {}, version: 0, load: async () => false, registerDropTarget: () => () => {} });
 
 export const useOpener = () => useContext(OpenerContext);
 
@@ -22,11 +41,19 @@ export function Opener({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
   const reduce = useReducedMotion();
+  const target = useRef<DropTarget | null>(null);
 
   const openFile = useCallback(() => input.current?.click(), []);
 
+  const registerDropTarget = useCallback((t: DropTarget) => {
+    target.current = t;
+    return () => {
+      if (target.current === t) target.current = null;
+    };
+  }, []);
+
   const load = useCallback(
-    async (file: File) => {
+    async (file: File, before?: () => Promise<void>) => {
       try {
         if (file.size > 50 * 1024 * 1024) throw new TraceError("This file is larger than 50 MB. Blackbox reads traces up to 50 MB.");
         const trace = parseTrace(await file.text(), file.name);
@@ -34,9 +61,12 @@ export function Opener({ children }: { children: React.ReactNode }) {
         setOpened(trace);
         setError(null);
         setVersion((v) => v + 1);
+        await before?.();
         if (path !== "/trace") router.push("/trace");
+        return true;
       } catch (e) {
         setError(e instanceof TraceError ? e.message : "Blackbox could not read this file. It must be JSON or JSON lines.");
+        return false;
       }
     },
     [path, router],
@@ -47,19 +77,31 @@ export function Opener({ children }: { children: React.ReactNode }) {
     const enter = (e: DragEvent) => {
       if (!e.dataTransfer?.types.includes("Files")) return;
       depth++;
-      setDropping(true);
+      if (depth > 1) return;
+      if (target.current) target.current.enter();
+      else setDropping(true);
     };
     const leave = () => {
       depth = Math.max(0, depth - 1);
-      if (!depth) setDropping(false);
+      if (depth) return;
+      setDropping(false);
+      target.current?.leave();
     };
-    const over = (e: DragEvent) => e.preventDefault();
+    const over = (e: DragEvent) => {
+      e.preventDefault();
+      target.current?.over(e.clientX, e.clientY);
+    };
     const drop = (e: DragEvent) => {
       e.preventDefault();
       depth = 0;
       setDropping(false);
       const f = e.dataTransfer?.files?.[0];
-      if (f) load(f);
+      if (!f) {
+        target.current?.leave();
+        return;
+      }
+      if (target.current) target.current.drop(f, e.clientX, e.clientY);
+      else load(f);
     };
     const key = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "o") {
@@ -89,7 +131,7 @@ export function Opener({ children }: { children: React.ReactNode }) {
   }, [error]);
 
   return (
-    <OpenerContext.Provider value={{ openFile, version }}>
+    <OpenerContext.Provider value={{ openFile, version, load, registerDropTarget }}>
       {children}
       <input
         ref={input}
@@ -101,7 +143,9 @@ export function Opener({ children }: { children: React.ReactNode }) {
         onChange={(e) => {
           const f = e.target.files?.[0];
           e.target.value = "";
-          if (f) load(f);
+          if (!f) return;
+          if (target.current) target.current.drop(f, window.innerWidth / 2, window.innerHeight / 2);
+          else load(f);
         }}
       />
       <AnimatePresence>
