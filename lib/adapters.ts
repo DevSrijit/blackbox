@@ -16,11 +16,15 @@ export function parseTrace(text: string, fileName = "trace"): Trace {
   const trimmed = text.trim();
   if (!trimmed) throw new TraceError("The file is empty.");
   let doc: unknown = null;
+  let parsed = false;
   try {
     doc = JSON.parse(trimmed);
+    parsed = true;
   } catch {
     // Not one JSON document: try JSON lines.
   }
+  if (parsed && (doc === null || typeof doc !== "object"))
+    throw new TraceError("This file holds one plain value, not a trace. Blackbox reads OpenTelemetry JSON, Blackbox JSON, or JSON lines of chat calls.");
   if (doc && typeof doc === "object" && !Array.isArray(doc)) {
     const o = doc as Record<string, unknown>;
     if ("blackbox" in o) return native(o, fileName);
@@ -28,7 +32,10 @@ export function parseTrace(text: string, fileName = "trace"): Trace {
     if ("choices" in o || "messages" in o) return chatLines([o], fileName);
     throw new TraceError("Blackbox does not know this file shape. It reads OpenTelemetry JSON, Blackbox JSON, or JSON lines of chat calls.");
   }
-  if (Array.isArray(doc)) return chatLines(doc as Record<string, unknown>[], fileName);
+  if (Array.isArray(doc)) {
+    if (doc.some((r) => !r || typeof r !== "object" || Array.isArray(r))) throw new TraceError("An item in this file is not a JSON object. Each item must hold one chat call.");
+    return chatLines(doc as Record<string, unknown>[], fileName);
+  }
   const lines = trimmed
     .split("\n")
     .map((l) => l.trim())
@@ -41,6 +48,7 @@ export function parseTrace(text: string, fileName = "trace"): Trace {
       throw new TraceError(`Line ${i + 1} is not valid JSON. Blackbox reads OpenTelemetry JSON, Blackbox JSON, or JSON lines of chat calls.`);
     }
   }
+  if (rows.some((r) => !r || typeof r !== "object" || Array.isArray(r))) throw new TraceError("A line in this file is not a JSON object. Each line must hold one chat call.");
   if (rows.length && rows.every((r) => "resourceSpans" in r)) {
     const merged = { resourceSpans: rows.flatMap((r) => r.resourceSpans as unknown[]) };
     return otel(merged, fileName);
@@ -61,42 +69,109 @@ function native(o: Record<string, unknown>, fileName = "trace"): Trace {
   });
 }
 
-const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : Number(v) || 0);
+/** A finite number, or 0. "Infinity", NaN and non-numeric text all become 0. */
+const num = (v: unknown) => {
+  const n = typeof v === "number" ? v : typeof v === "string" && v.trim() ? Number(v) : NaN;
+  return Number.isFinite(n) ? n : 0;
+};
+const count = (v: unknown) => Math.max(0, num(v));
 const MAX_DURATION = 7 * 24 * 3600 * 1000;
+
+const json = (v: unknown) => {
+  try {
+    return JSON.stringify(v) ?? "";
+  } catch {
+    return String(v);
+  }
+};
+/** Any value as display text. Objects become JSON, so a file can never put an object into the page. */
+const text = (v: unknown): string => (typeof v === "string" ? v : v == null ? "" : typeof v === "object" ? json(v) : String(v));
+
+const ROLES = new Set(["system", "user", "assistant", "tool"]);
+function message(m: unknown): Message | undefined {
+  if (typeof m === "string") return { role: "user", content: m };
+  if (!m || typeof m !== "object") return undefined;
+  const o = m as Record<string, unknown>;
+  const calls = Array.isArray(o.toolCalls) ? o.toolCalls.filter((c): c is Record<string, unknown> => !!c && typeof c === "object") : [];
+  return {
+    role: ROLES.has(o.role as string) ? (o.role as Message["role"]) : "user",
+    content: text(o.content),
+    name: typeof o.name === "string" ? o.name : undefined,
+    toolCalls: calls.length ? calls.map((c) => ({ id: typeof c.id === "string" ? c.id : undefined, name: text(c.name) || "tool", args: c.args ?? {} })) : undefined,
+  };
+}
+
+/**
+ * An id that is also a key of every plain object ("constructor", "__proto__", "toString") would
+ * read the wrong value from a lookup table. Such ids get a prefix.
+ */
+const safeId = (id: string) => (id === "__proto__" || id in Object.prototype ? `span:${id}` : id);
 
 /**
  * The last step for every adapter: every span gets valid fields, so no file can crash the UI.
- * Times become finite and ordered, usage counts become numbers, ids become unique strings.
+ * Times become finite and ordered, counts and costs become finite and not negative, text fields
+ * become strings, and ids become unique strings.
  */
 export function finish(t: Trace): Trace {
   const seen = new Set<string>();
   const spans: Span[] = t.spans.map((raw, i) => {
-    const s = (raw ?? {}) as Partial<Span>;
-    let id = String(s.id ?? `span-${i}`);
+    const s = (raw && typeof raw === "object" ? raw : {}) as Partial<Span>;
+    let id = safeId(s.id == null ? `span-${i}` : text(s.id));
     while (seen.has(id)) id = `${id}#${i}`;
     seen.add(id);
     const a = num(s.start);
     const b = num(s.end);
     const kind: SpanKind = s.kind === "llm" || s.kind === "tool" || s.kind === "retrieval" || s.kind === "agent" ? s.kind : "agent";
-    const span: Span = { ...s, id, parentId: s.parentId ? String(s.parentId) : null, kind, name: String(s.name ?? s.tool?.name ?? kind), start: Math.min(a, b), end: Math.max(a, b), status: s.status === "error" ? "error" : "ok" };
+    const tool = s.tool && typeof s.tool === "object" ? { name: text(s.tool.name) || "tool", args: s.tool.args ?? {}, result: s.tool.result } : undefined;
+    const span: Span = {
+      id,
+      parentId: s.parentId == null || s.parentId === "" ? null : safeId(text(s.parentId)),
+      kind,
+      name: text(s.name) || tool?.name || kind,
+      start: Math.min(a, b),
+      end: Math.max(a, b),
+      status: s.status === "error" ? "error" : "ok",
+      error: s.error == null ? undefined : text(s.error),
+      tool,
+      tools: Array.isArray(s.tools) ? s.tools.filter((d) => d && typeof d === "object").map((d) => ({ ...d, name: text(d.name) || "tool" })) : undefined,
+      input: Array.isArray(s.input) ? s.input.map(message).filter((m): m is Message => !!m) : s.input == null ? undefined : [message(s.input)].filter((m): m is Message => !!m),
+      output: message(s.output),
+    };
     if (kind === "llm") {
-      const u = (s.usage ?? {}) as Partial<Usage>;
-      span.usage = { input: Math.max(0, num(u.input)), output: Math.max(0, num(u.output)), cacheRead: Math.max(0, num(u.cacheRead)), cacheWrite: Math.max(0, num(u.cacheWrite)) };
-      if (typeof s.model !== "string" || !s.model) span.model = undefined;
+      const u = (s.usage && typeof s.usage === "object" ? s.usage : {}) as Partial<Usage>;
+      span.usage = { input: count(u.input), output: count(u.output), cacheRead: count(u.cacheRead), cacheWrite: count(u.cacheWrite) };
+      span.model = typeof s.model === "string" && s.model ? s.model : undefined;
+      // A recorded cost must be a finite number that is not negative. Text like "0.4" is read as a number.
+      const raw = s.recordedCost as unknown;
+      const cost = typeof raw === "number" ? raw : typeof raw === "string" && raw.trim() ? Number(raw) : NaN;
+      if (Number.isFinite(cost) && cost >= 0) span.recordedCost = cost;
     }
     return span;
   });
-  const t0 = spans.length ? Math.min(...spans.map((s) => s.start)) : 0;
+  // Loops, not Math.min(...spans): a spread of 250,000 values overflows the call stack.
+  let t0 = Infinity;
+  for (const s of spans) if (s.start < t0) t0 = s.start;
+  if (!Number.isFinite(t0)) t0 = 0;
+  let duration = 0;
   for (const s of spans) {
     s.start -= t0;
     s.end -= t0;
+    if (s.end > duration) duration = s.end;
   }
-  const duration = Math.max(0, ...spans.map((s) => s.end));
   if (duration > MAX_DURATION) throw new TraceError("This trace is longer than 7 days. Its timestamps use mixed units, or a unit that Blackbox does not read. Blackbox reads milliseconds, or seconds for OpenAI's created field.");
   return { ...t, spans };
 }
 
 // ---------- OpenTelemetry ----------
+
+/** OTLP nanoseconds, as a string or a number, to milliseconds. Bad values give NaN, which finish() turns into 0. */
+function nanoToMs(v: unknown): number {
+  try {
+    return Number(BigInt(String(v).trim().split(".")[0]) / BigInt(1e6));
+  } catch {
+    return Number(v) / 1e6;
+  }
+}
 
 type Attr = { key: string; value: Record<string, unknown> };
 type OtlpSpan = {
@@ -123,7 +198,12 @@ function otel(o: Record<string, unknown>, fileName: string): Trace {
   for (const rs of (o.resourceSpans as { scopeSpans?: { spans?: OtlpSpan[] }[] }[]) ?? [])
     for (const ss of rs.scopeSpans ?? []) spans.push(...(ss.spans ?? []));
   if (!spans.length) throw new TraceError("This OTLP file has no spans.");
-  const t0 = Math.min(...spans.map((s) => Number(BigInt(s.startTimeUnixNano) / BigInt(1e6))));
+  let t0 = Infinity;
+  for (const s of spans) {
+    const ms = nanoToMs(s.startTimeUnixNano);
+    if (Number.isFinite(ms) && ms < t0) t0 = ms;
+  }
+  if (!Number.isFinite(t0)) t0 = 0;
   const ids = new Set(spans.map((s) => s.spanId));
   const out: Span[] = spans.map((s) => {
     const a: Record<string, unknown> = {};
@@ -135,8 +215,8 @@ function otel(o: Record<string, unknown>, fileName: string): Trace {
     const model = str("gen_ai.response.model", "gen_ai.request.model", "llm.model_name");
     const kind: SpanKind =
       op.includes("agent") || op === "chain" ? "agent" : op.includes("tool") || toolName ? "tool" : op.includes("retriev") || op === "embeddings" ? "retrieval" : model || op === "chat" || op === "llm" || op === "text_completion" ? "llm" : "agent";
-    const start = Number(BigInt(s.startTimeUnixNano) / BigInt(1e6)) - t0;
-    const end = Number(BigInt(s.endTimeUnixNano) / BigInt(1e6)) - t0;
+    const start = nanoToMs(s.startTimeUnixNano) - t0;
+    const end = nanoToMs(s.endTimeUnixNano) - t0;
     const cacheRead = num("gen_ai.usage.cache_read.input_tokens", "gen_ai.usage.cache_read_input_tokens", "llm.token_count.prompt_details.cache_read");
     const cacheWrite = num("gen_ai.usage.cache_creation.input_tokens", "gen_ai.usage.cache_creation_input_tokens", "llm.token_count.prompt_details.cache_write");
     const promptTotal = num("gen_ai.usage.input_tokens", "gen_ai.usage.prompt_tokens", "llm.token_count.prompt");
@@ -242,6 +322,8 @@ function chatLines(rows: Record<string, unknown>[], fileName: string): Trace {
     });
     clock = s0 + dur + 200;
   });
-  const t0 = Math.min(...spans.map((s) => s.start));
+  let t0 = Infinity;
+  for (const s of spans) if (s.start < t0) t0 = s.start;
+  if (!Number.isFinite(t0)) t0 = 0;
   return finish({ id: fileName, title: fileName.replace(/\.[^.]+$/, ""), source: "openai", startedAt: new Date(Number.isFinite(t0) && t0 > 1e12 ? t0 : 0).toISOString(), spans });
 }

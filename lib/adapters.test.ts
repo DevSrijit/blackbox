@@ -63,3 +63,42 @@ test("combined saving never exceeds the run and is below the plain sum", () => {
   expect(s).toBeLessThan(0.35);
   expect(s).toBeGreaterThan(0.25);
 });
+
+// Hostile files from the break-UI review. Each one crashed the page or showed an impossible number.
+const native = (spans: unknown[]) => JSON.stringify({ blackbox: 1, title: "hostile", spans });
+const llm = (extra: Record<string, unknown>) => ({ kind: "llm", name: "call", start: 0, end: 1000, model: "acme/x", usage: { input: 100, output: 10 }, ...extra });
+
+test("ids that are keys of every object get a prefix", () => {
+  const t = parseTrace(native([llm({ id: "constructor" }), llm({ id: "__proto__", parentId: "constructor" }), llm({ id: "toString" })]));
+  expect(t.spans.map((s) => s.id)).toEqual(["span:constructor", "span:__proto__", "span:toString"]);
+  expect(t.spans[1].parentId).toBe("span:constructor");
+});
+
+test("recorded costs must be finite and not negative", () => {
+  const t = parseTrace(native([llm({ id: "a", recordedCost: "0.4" }), llm({ id: "b", recordedCost: -5 }), llm({ id: "c", recordedCost: "Infinity" })]));
+  expect(t.spans.map((s) => s.recordedCost)).toEqual([0.4, undefined, undefined]);
+});
+
+test("Infinity and text in counts and times become 0", () => {
+  const t = parseTrace(native([llm({ id: "a", start: "-Infinity", end: 1e999, usage: { input: "Infinity", output: "lots" } })]));
+  const s = t.spans[0];
+  expect([s.start, s.end, s.usage!.input, s.usage!.output]).toEqual([0, 0, 0, 0]);
+});
+
+test("objects in text fields become text, never objects in the page", () => {
+  const t = parseTrace(native([llm({ id: "a", status: "error", error: { message: "boom" }, input: "hi", output: { role: "assistant", content: { text: "x" } } })]));
+  const s = t.spans[0];
+  expect(s.error).toBe('{"message":"boom"}');
+  expect(s.input).toEqual([{ role: "user", content: "hi" }]);
+  expect(s.output?.content).toBe('{"text":"x"}');
+});
+
+test("a plain value or a null line gets a clear error", () => {
+  expect(() => parseTrace("null")).toThrow("one plain value");
+  expect(() => parseTrace('{"model":"a","usage":{}}\nnull')).toThrow("not a JSON object");
+});
+
+test("250,000 spans parse without a stack overflow", () => {
+  const spans = Array.from({ length: 250_000 }, (_, i) => ({ id: `s${i}`, kind: "tool", name: "t", start: i, end: i + 1 }));
+  expect(parseTrace(native(spans)).spans.length).toBe(250_000);
+});

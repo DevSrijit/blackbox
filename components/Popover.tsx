@@ -30,21 +30,31 @@ function usePopover() {
     if (!open) return;
     measure();
     const away = (e: PointerEvent) => {
-      const t = e.target as Node;
-      if (!panel.current?.contains(t) && !trigger.current?.contains(t)) setOpen(false);
+      const t = e.target;
+      if (!(t instanceof Node) || (!panel.current?.contains(t) && !trigger.current?.contains(t))) setOpen(false);
     };
     // Close when anything around it scrolls or the window resizes: the anchor moved.
+    // A resize event targets the window, which is not a Node, so check before contains().
     const close = (e: Event) => {
-      if (panel.current?.contains(e.target as Node)) return;
+      if (e.target instanceof Node && panel.current?.contains(e.target)) return;
+      setOpen(false);
+    };
+    // Close when focus moves somewhere else, for example into the command menu. Then one Esc
+    // never has two open layers to close.
+    const blur = (e: FocusEvent) => {
+      const t = e.target;
+      if (t instanceof Node && (panel.current?.contains(t) || trigger.current?.contains(t))) return;
       setOpen(false);
     };
     window.addEventListener("pointerdown", away, true);
     window.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
+    window.addEventListener("focusin", blur);
     return () => {
       window.removeEventListener("pointerdown", away, true);
       window.removeEventListener("scroll", close, true);
       window.removeEventListener("resize", close);
+      window.removeEventListener("focusin", blur);
     };
   }, [open, measure]);
 
@@ -119,6 +129,8 @@ export function Select<T extends string | number>({ value, options, onChange, la
             return;
           }
           if (!open) return;
+          // While the list is open, its keys belong to it: none reach the page shortcuts.
+          e.stopPropagation();
           if (e.key === "ArrowDown") {
             e.preventDefault();
             setActive((a) => Math.min(options.length - 1, a + 1));

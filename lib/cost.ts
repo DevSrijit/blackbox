@@ -4,6 +4,13 @@ import type { Model, Span, Trace, Usage } from "./types";
 
 export type Prices = Map<string, Model>;
 
+/** The largest value, by loop. Safe for any number of values, unlike Math.max(...values). */
+export function maxOf(values: Iterable<number>, floor = 0): number {
+  let m = floor;
+  for (const v of values) if (v > m) m = v;
+  return m;
+}
+
 export function priceMap(models: Model[]): Prices {
   return new Map(models.map((m) => [m.id, m]));
 }
@@ -96,7 +103,9 @@ export function totals(trace: Trace) {
     { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
   );
   const prompt = u.input + u.cacheRead + u.cacheWrite;
-  const duration = Math.max(0, ...trace.spans.map((s) => s.end));
+  // A loop, not Math.max(...spans): a spread of 250,000 values overflows the call stack.
+  let duration = 0;
+  for (const s of trace.spans) if (s.end > duration) duration = s.end;
   return {
     llmCalls: llm.length,
     toolCalls: trace.spans.filter((s) => s.kind === "tool").length,

@@ -193,7 +193,8 @@ function WhatIf({ trace, prices, models, applied, apply, scale, setScale, featur
             );
           const { m, cost } = row;
           const on = applied === m.id;
-          const delta = noBase ? null : cost / recorded - 1;
+          // With unpriced calls, the recorded cost leaves them out, so a percentage would compare different calls.
+          const delta = noBase || unpriced > 0 ? null : cost / recorded - 1;
           return (
             <li key={m.id}>
               <button
@@ -273,7 +274,7 @@ function Findings({ findings, trace, prices, scale, onHoverFinding, onSelect }: 
   // Each fix takes its part of the cost that is left after the fixes before it, so the parts add up to the combined saving.
   const parts = findings.reduce<{ f: Finding; part: number; rest: number }[]>((acc, f) => {
     const before = acc.length ? acc[acc.length - 1].rest : total;
-    const part = before * Math.min(0.95, f.saving / total);
+    const part = total > 0 ? before * Math.min(0.95, f.saving / total) : 0;
     return [...acc, { f, part, rest: before - part }];
   }, []);
   const left = parts.length ? parts[parts.length - 1].rest : total;
@@ -294,7 +295,13 @@ function Findings({ findings, trace, prices, scale, onHoverFinding, onSelect }: 
           <Num value={saving * scale} format={usd} className="mt-0.5 block text-[24px] font-semibold tracking-[-0.02em] text-rec" />
         </div>
         <div className="text-right text-[12px] text-ink-3">
-          <span className="text-ink">{Math.round((saving / total) * 100)}%</span> of {usd(total * scale)}
+          {total > 0 ? (
+            <>
+              <span className="text-ink">{Math.round((saving / total) * 100)}%</span> of {usd(total * scale)}
+            </>
+          ) : (
+            "no priced cost to measure"
+          )}
         </div>
       </div>
 
@@ -309,7 +316,7 @@ function Findings({ findings, trace, prices, scale, onHoverFinding, onSelect }: 
             onMouseEnter={() => enter(f)}
             onClick={() => onSelect(f.spans[0])}
             className="h-full transition-opacity duration-150"
-            style={{ width: `${(part / total) * 100}%`, background: "var(--rec)", opacity: hot && hot !== f.id ? 0.3 : 1 - parts.findIndex((p) => p.f.id === f.id) * 0.13 }}
+            style={{ width: `${total > 0 ? (part / total) * 100 : 0}%`, background: "var(--rec)", opacity: hot && hot !== f.id ? 0.3 : 1 - parts.findIndex((p) => p.f.id === f.id) * 0.13 }}
           />
         ))}
         <span className="h-full flex-1 bg-white/[0.12]" title="Cost with every fix applied" />
@@ -329,7 +336,7 @@ function Findings({ findings, trace, prices, scale, onHoverFinding, onSelect }: 
           >
             <div className="flex items-start gap-3">
               <span className="mt-[5px] size-1.5 shrink-0 rounded-full bg-rec" style={{ opacity: 1 - i * 0.13 }} aria-hidden />
-              <h3 className="text-pretty text-[13px] font-medium leading-snug text-ink">{f.title}</h3>
+              <h3 className="text-pretty text-[13px] font-medium leading-snug text-ink [overflow-wrap:anywhere]">{f.title}</h3>
               <span className="ml-auto shrink-0 font-mono text-[12.5px] text-rec tnum">−{usd(f.saving * scale)}</span>
             </div>
             <p className="mt-1.5 pl-[18px] text-pretty text-[12.5px] leading-relaxed text-ink-2">{f.detail}</p>
@@ -377,7 +384,7 @@ function Step({ selected, prices, assign, setStepModel, scale, models, featured 
             {clock(s.start)} → {clock(s.end)} · {((s.end - s.start) / 1000).toFixed(2)}s
           </span>
         </div>
-        <h3 className="mt-2 text-[16px] font-medium text-ink">{s.name}</h3>
+        <h3 className="mt-2 text-[16px] font-medium text-ink [overflow-wrap:anywhere]">{s.name}</h3>
         {s.error && (
           <div className="mt-2 rounded-lg bg-white/[0.03] px-3 py-2 shadow-[inset_0_0_0_1px_var(--hair-2)]">
             <div className="flex items-center gap-1.5 text-[11.5px] font-medium text-ink">
@@ -483,7 +490,13 @@ function Line({ k, n, v }: { k: string; n: number; v: number }) {
 }
 
 function Code({ label, value }: { label: string; value: unknown }) {
-  const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  // JSON.stringify gives undefined for undefined, and throws on a cycle. Neither may reach the page.
+  let text: string;
+  try {
+    text = typeof value === "string" ? value : (JSON.stringify(value, null, 2) ?? "—");
+  } catch {
+    text = String(value);
+  }
   return (
     <div>
       <div className="mb-1.5 text-[12px] text-ink-3">{label}</div>
@@ -492,4 +505,4 @@ function Code({ label, value }: { label: string; value: unknown }) {
   );
 }
 
-const truncate = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+const truncate = (s: string | undefined, n: number) => (!s ? "" : s.length > n ? `${s.slice(0, n - 1)}…` : s);

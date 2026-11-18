@@ -8,7 +8,7 @@
 
 import { motion, useReducedMotion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
-import { tokens, usd } from "@/lib/cost";
+import { tokens, usd, maxOf } from "@/lib/cost";
 import type { Span } from "@/lib/types";
 import { clock, KindMark, Num, shortModel } from "./ui";
 
@@ -69,37 +69,63 @@ function useScrub(s: Shared, callAt?: (t: number) => string | null) {
 }
 
 /** The playhead and the hover guide, drawn over a track. */
-function Heads({ s, tag }: { s: Shared; tag?: boolean }) {
+type Box = { x0: number; x1: number; y0: number; y1: number };
+const TAG_W = 64;
+const TAG_H = 20;
+const hits = (a: Box, b: Box) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+
+/**
+ * Where a time tag goes, in pixels: right of its line, or left of it when it would pass the edge,
+ * and at the top or the bottom of the chart, whichever is clear of the boxes to avoid.
+ * Null when neither place is clear.
+ */
+function placeTag(x: number, width: number, avoid: Box[]): (Box & { left: boolean; bottom: boolean }) | null {
+  const left = x + 6 + TAG_W > width - 2;
+  const x0 = left ? x - 6 - TAG_W : x + 6;
+  for (const bottom of [false, true]) {
+    const y0 = bottom ? SPEND_H - 6 - TAG_H : 6;
+    const box = { x0, x1: x0 + TAG_W, y0, y1: y0 + TAG_H };
+    if (!avoid.some((b) => hits(box, b))) return { ...box, left, bottom };
+  }
+  return null;
+}
+
+function Heads({ s, tag, width = 0, avoid = [] }: { s: Shared; tag?: boolean; width?: number; avoid?: Box[] }) {
   const f = fracOf(s.t, s.duration);
   const h = s.hoverTime === null ? null : fracOf(s.hoverTime, s.duration);
   const showHover = h !== null && Math.abs(h - f) > 1 / 150;
-  // The pointer's time wins: when its tag comes near the playhead tag, the playhead tag steps aside.
-  // A tag sits right of its line, or left of it near the end, so compare where the tags are, not the lines.
-  const TAG = 0.075;
-  const center = (x: number) => (x > 0.86 ? x - TAG / 2 : x + TAG / 2);
-  const near = showHover && Math.abs(center(h) - center(f)) < TAG + 0.01;
-  // At the end of the run the transport clock already shows the time, and this tag would sit on the end label.
+  // At the end of the run the transport clock already shows the time.
   const atEnd = s.t >= s.duration * 0.999;
+  // The pointer's tag is placed first and wins. The playhead tag then avoids it and the end prices,
+  // and hides when it has no clear place.
+  const hoverTag = tag && width && showHover ? placeTag(h * width, width, avoid) : null;
+  const headTag = tag && width && !atEnd ? placeTag(f * width, width, hoverTag ? [...avoid, hoverTag] : avoid) : null;
+  const pos = (p: { left: boolean; bottom: boolean }) => `${p.left ? "right-1.5" : "left-1.5"} ${p.bottom ? "bottom-1.5" : "top-1.5"}`;
   return (
     <>
       <span className="pointer-events-none absolute inset-y-0 z-[1] w-px bg-ink" style={{ left: `${f * 100}%` }}>
-        {tag && (
-          <span
-            className={`absolute whitespace-nowrap rounded-[5px] bg-ink px-1.5 py-0.5 font-mono text-[11px] font-medium text-bg transition-opacity duration-150 tnum ${f > 0.86 ? "bottom-1.5 right-1.5" : "left-1.5 top-1.5"} ${near || atEnd ? "opacity-0" : ""}`}
-          >
-            {clock(s.t)}
-          </span>
-        )}
+        {headTag && <span className={`absolute whitespace-nowrap rounded-[5px] bg-ink px-1.5 py-0.5 font-mono text-[11px] font-medium text-bg tnum ${pos(headTag)}`}>{clock(s.t)}</span>}
       </span>
       {showHover && (
         <span className="pointer-events-none absolute inset-y-0 z-[2] w-px bg-white/[0.16]" style={{ left: `${h * 100}%` }}>
-          {tag && (
-            <span className={`absolute whitespace-nowrap rounded-[5px] bg-raised px-1.5 py-0.5 font-mono text-[11px] text-ink-2 shadow-[inset_0_0_0_1px_var(--hair-2)] tnum ${h > 0.86 ? "bottom-1.5 right-1.5" : "left-1.5 top-1.5"}`}>{clock(s.hoverTime!)}</span>
-          )}
+          {hoverTag && <span className={`absolute whitespace-nowrap rounded-[5px] bg-raised px-1.5 py-0.5 font-mono text-[11px] text-ink-2 shadow-[inset_0_0_0_1px_var(--hair-2)] tnum ${pos(hoverTag)}`}>{clock(s.hoverTime!)}</span>}
         </span>
       )}
     </>
   );
+}
+
+/** The width of an element in pixels, kept current as it resizes. */
+function useWidth(ref: React.RefObject<HTMLElement | null>) {
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setW(e.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return w;
 }
 
 /** A faint band over the time range of the hovered or selected step. */
@@ -200,9 +226,29 @@ export function Tape({
   const y = (c: number) => 100 - (c / max) * 80;
   const llm = s.rows.filter((r) => r.span.kind === "llm" && r.span.usage).map((r) => r.span);
   const prompt = (sp: Span) => sp.usage!.input + sp.usage!.cacheRead + sp.usage!.cacheWrite;
-  const maxPrompt = Math.max(1, ...llm.map(prompt));
+  const maxPrompt = maxOf(llm.map(prompt), 1);
   const lastCall = [...llm].reverse().find((sp) => sp.start <= t);
   const ticks = niceTicks(duration);
+
+  // The end prices. Two close together would stack, so the lower price moves under its own line.
+  // Their boxes, in pixels, are what the time tags must stay clear of.
+  const spendRef = useRef<HTMLDivElement>(null);
+  const spendW = useWidth(spendRef);
+  const recTop = y(curve.at(-1)?.c ?? 0);
+  const altTop = whatIf ? y(whatIf.at(-1)?.c ?? 0) : null;
+  const closeLabels = altTop !== null && Math.abs(recTop - altTop) < (26 / SPEND_H) * 100;
+  const recBelow = closeLabels && recTop >= altTop!;
+  const altBelow = closeLabels && altTop! > recTop;
+  const showRecLabel = !(recorded === 0 && unpriced > 0);
+  const labelBox = (topPct: number, below: boolean, text: string): Box => {
+    const yPx = (topPct / 100) * SPEND_H;
+    const w = text.length * 6.7 + 14;
+    return { x0: spendW - 8 - w, x1: spendW - 8, y0: below ? yPx + 3 : yPx - 3 - TAG_H, y1: below ? yPx + 3 + TAG_H : yPx - 3 };
+  };
+  const labelBoxes: Box[] = [
+    ...(showRecLabel ? [labelBox(recTop, recBelow, usd(curve.at(-1)?.c ?? 0))] : []),
+    ...(whatIf && altTop !== null ? [labelBox(altTop, altBelow, usd(whatIf.at(-1)?.c ?? 0))] : []),
+  ];
 
   // A step line as points: flat until each LLM call ends, then up to the new total.
   const steps = (pts: Pt[]) => {
@@ -239,7 +285,10 @@ export function Tape({
             )}
           </div>
           <p className="text-[12px] leading-snug text-ink-3">
-            {changed ? (
+            {changed && (recorded === 0 || unpriced > 0) ? (
+              // With calls that have no recorded price, a percentage would compare different sets of calls.
+              <>recorded: {recorded === 0 ? "no price" : <><span className="text-rec">{usd(recorded)}</span> for the priced calls</>}</>
+            ) : changed ? (
               <>
                 recorded <span className="text-rec">{usd(recorded)}</span>{" "}
                 <span className="text-ink-2">
@@ -320,7 +369,7 @@ export function Tape({
         }}
         className="relative cursor-crosshair touch-none select-none outline-offset-[-2px]"
       >
-        <div className="relative overflow-hidden" style={{ height: SPEND_H }}>
+        <div ref={spendRef} className="relative overflow-hidden" style={{ height: SPEND_H }}>
           <Bands s={s} />
           <svg viewBox="0 0 1000 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
             <defs>
@@ -370,24 +419,14 @@ export function Tape({
               <div className="saved-hatch absolute inset-y-0 left-0" style={{ width: `${100 / frac(t)}%`, clipPath: "url(#saved-clip)" }} />
             </div>
           )}
-          {(() => {
-            // Two end prices close together would stack. The lower price moves under its own line.
-            const recTop = y(curve.at(-1)?.c ?? 0);
-            const altTop = whatIf ? y(whatIf.at(-1)?.c ?? 0) : null;
-            const close = altTop !== null && Math.abs(recTop - altTop) < (26 / SPEND_H) * 100;
-            return (
-              <>
-                {!(recorded === 0 && unpriced > 0) && <EndLabel top={recTop} text={usd(curve.at(-1)?.c ?? 0)} tone="rec" dim={!!alt} below={close && recTop >= altTop!} />}
-                {whatIf && altTop !== null && <EndLabel top={altTop} text={usd(whatIf.at(-1)?.c ?? 0)} tone="ink" below={close && altTop > recTop} />}
-              </>
-            );
-          })()}
+          {showRecLabel && <EndLabel top={recTop} text={usd(curve.at(-1)?.c ?? 0)} tone="rec" dim={!!alt} below={recBelow} />}
+          {whatIf && altTop !== null && <EndLabel top={altTop} text={usd(whatIf.at(-1)?.c ?? 0)} tone="ink" below={altBelow} />}
           <span
             className={`pointer-events-none absolute size-[7px] -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-bg ${alt ? "bg-ink" : "bg-rec"}`}
             // Kept 4 px inside the track, so the dot is never cut in half at the end of the run.
             style={{ left: `min(${frac(t) * 100}%, calc(100% - 4px))`, top: `${y(spent)}%` }}
           />
-          <Heads s={s} tag />
+          <Heads s={s} tag width={spendW} avoid={labelBoxes} />
         </div>
 
         <div className="relative overflow-hidden border-t border-hair" style={{ height: CTX_H }}>
@@ -448,7 +487,7 @@ export function Tape({
         <div className="relative h-7 overflow-hidden border-t border-hair">
           {ticks.map((v, i) => (
             <span key={v} className={`absolute top-[7px] font-mono text-[11px] text-ink-3 tnum ${i === 0 ? "pl-1.5" : "-translate-x-1/2"}`} style={{ left: `${frac(v) * 100}%` }}>
-              {v === 0 ? "0s" : `${Math.round(v / 1000)}s`}
+              {tickLabel(v)}
             </span>
           ))}
           <Heads s={s} />
@@ -456,6 +495,40 @@ export function Tape({
       </div>
     </div>
   );
+}
+
+/** Rows past this count render as a window around the screen, not all at once. */
+const WINDOW_AT = 400;
+
+/** The rows to render for a long list: the ones on screen, plus a margin above and below. */
+function useRowWindow(list: React.RefObject<HTMLDivElement | null>, on: boolean, count: number): [number, number] {
+  const [range, setRange] = useState<[number, number]>([0, 80]);
+  useEffect(() => {
+    if (!on) return;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const el = list.current;
+      if (!el) return;
+      const rowH = parseFloat(getComputedStyle(el).getPropertyValue("--row-h")) || ROW_H;
+      const r = el.getBoundingClientRect();
+      const first = Math.max(0, Math.floor(-r.top / rowH) - 30);
+      const last = Math.min(count, Math.ceil((innerHeight - r.top) / rowH) + 30);
+      setRange((p) => (p[0] === first && p[1] === last ? p : [first, last]));
+    };
+    const schedule = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    schedule();
+    addEventListener("scroll", schedule, true);
+    addEventListener("resize", schedule);
+    return () => {
+      cancelAnimationFrame(raf);
+      removeEventListener("scroll", schedule, true);
+      removeEventListener("resize", schedule);
+    };
+  }, [list, on, count]);
+  return range;
 }
 
 export function Steps({ s, assign, sort, applied }: { s: Shared; assign: Record<string, string>; sort: Sort; applied: string | null }) {
@@ -471,15 +544,34 @@ export function Steps({ s, assign, sort, applied }: { s: Shared; assign: Record<
       : s.rows;
   const { duration, t } = s;
   const frac = (ms: number) => fracOf(ms, duration);
-  const top = Math.max(1e-9, ...s.costs.values());
+  const top = maxOf(s.costs.values(), 1e-9);
   const ticks = niceTicks(duration);
   const focusable = s.selected ?? ordered[0]?.span.id;
+  // A long trace renders only the rows near the screen. Below WINDOW_AT rows every row renders,
+  // so the reorder animation still runs.
+  const windowed = ordered.length > WINDOW_AT;
+  const range = useRowWindow(list, windowed, ordered.length);
+  const shown = windowed ? ordered.slice(range[0], range[1]) : ordered;
 
   const move = (from: number, dir: 1 | -1) => {
     const next = ordered[from + dir];
     if (!next) return;
     s.onSelect(next.span.id);
-    list.current?.querySelector<HTMLButtonElement>(`[data-row="${CSS.escape(next.span.id)}"]`)?.focus();
+    const sel = `[data-row="${CSS.escape(next.span.id)}"]`;
+    const row = list.current?.querySelector<HTMLButtonElement>(sel);
+    if (row) {
+      row.focus();
+      return;
+    }
+    // In a windowed list the next row may not be rendered yet: scroll to it, then focus it.
+    const el = list.current;
+    if (!el) return;
+    const rowH = parseFloat(getComputedStyle(el).getPropertyValue("--row-h")) || ROW_H;
+    const y = el.getBoundingClientRect().top + (from + dir) * rowH - innerHeight / 2;
+    const main = el.closest("main");
+    if (main && main.scrollHeight > main.clientHeight) main.scrollBy({ top: y });
+    else scrollBy({ top: y });
+    requestAnimationFrame(() => requestAnimationFrame(() => list.current?.querySelector<HTMLButtonElement>(sel)?.focus()));
   };
 
   return (
@@ -493,7 +585,9 @@ export function Steps({ s, assign, sort, applied }: { s: Shared; assign: Record<
           ))}
         </div>
       </div>
-      {ordered.map(({ span, depth }, i) => {
+      {windowed && <div style={{ height: `calc(var(--row-h, ${ROW_H}px) * ${ordered.length})` }} aria-hidden />}
+      {shown.map(({ span, depth }, k) => {
+        const i = windowed ? range[0] + k : k;
         const cost = s.costs.get(span.id) ?? 0;
         const len = span.end - span.start;
         const played = Math.max(0, Math.min(span.end, t) - span.start);
@@ -511,7 +605,7 @@ export function Steps({ s, assign, sort, applied }: { s: Shared; assign: Record<
         return (
           <motion.button
             key={span.id}
-            layout={reduce ? false : "position"}
+            layout={reduce || windowed ? false : "position"}
             transition={{ duration: 0.32, ease: [0.77, 0, 0.175, 1] }}
             type="button"
             role="option"
@@ -530,7 +624,7 @@ export function Steps({ s, assign, sort, applied }: { s: Shared; assign: Record<
             }}
             className={`${GRID} relative w-full text-left outline-offset-[-2px] ${on ? "bg-white/[0.06]" : hot ? "bg-rec/[0.07]" : hovered ? "bg-white/[0.03]" : ""}`}
             // 30 px with a mouse, 40 px on a touch screen, so a finger can hit one row.
-            style={{ height: `var(--row-h, ${ROW_H}px)` }}
+            style={windowed ? { position: "absolute", left: 0, top: `calc(var(--row-h, ${ROW_H}px) * ${i})`, height: `var(--row-h, ${ROW_H}px)` } : { height: `var(--row-h, ${ROW_H}px)` }}
           >
             <span className="relative flex min-w-0 items-center gap-2 pr-3 text-[12.5px]" style={{ paddingLeft: 12 + depth * 12 }}>
               {hot && <span className="absolute inset-y-[6px] left-0 w-px bg-rec" />}
@@ -587,9 +681,23 @@ function EndLabel({ top, text, tone, dim, below }: { top: number; text: string; 
   );
 }
 
+/** A tick time in the largest unit that keeps it short: "45s", "12m", "3h", "2d". */
+function tickLabel(ms: number) {
+  if (ms === 0) return "0s";
+  const s = Math.round(ms / 1000);
+  if (s < 120) return `${s}s`;
+  const m = Math.round(s / 60);
+  if (m < 120) return `${m}m`;
+  const h = Math.round(m / 60);
+  return h < 48 ? `${h}h` : `${Math.round(h / 24)}d`;
+}
+
+/** About 8 round ticks for any run length, from a second to a week. */
 function niceTicks(duration: number) {
-  const steps = [1000, 2000, 5000, 10000, 15000, 30000, 60000, 120000, 300000, 600000];
-  const step = steps.find((x) => duration / x <= 8) ?? 600000;
+  const m = 60_000;
+  const hr = 60 * m;
+  const steps = [1000, 2000, 5000, 10000, 15000, 30000, m, 2 * m, 5 * m, 10 * m, 15 * m, 30 * m, hr, 2 * hr, 3 * hr, 6 * hr, 12 * hr, 24 * hr];
+  const step = steps.find((x) => duration / x <= 8) ?? 24 * hr;
   const out: number[] = [];
   for (let v = 0; v <= duration - step * 0.4; v += step) out.push(v);
   return out;

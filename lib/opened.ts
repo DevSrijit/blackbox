@@ -14,6 +14,12 @@ export function setOpened(t: Trace) {
     sessionStorage.setItem(KEY, JSON.stringify(t));
   } catch {
     // Too large for sessionStorage, or storage is blocked. Memory still holds it for this visit.
+    // Drop the older trace, so a reload never shows a different file from the one opened last.
+    try {
+      sessionStorage.removeItem(KEY);
+    } catch {
+      // Storage is blocked; nothing is stored either.
+    }
   }
 }
 

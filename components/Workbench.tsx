@@ -52,10 +52,16 @@ export function Workbench({ trace, models, runs, current, pricesAt, pricesLive, 
   const assign = useMemo<Assignment>(() => ({ ...(applied ? allOn(trace, applied) : {}), ...stepModels }), [applied, stepModels, trace]);
   // A step counts as changed only when its cost changes. A model id with no price keeps the
   // recorded price, so it changes nothing and must not make the run read as re-priced.
-  const changed = Object.keys(assign).some((id) => {
-    const span = trace.spans.find((s) => s.id === id);
-    return !!span && assign[id] !== span.model && Math.abs(spanCost(span, prices, assign) - spanCost(span, prices)) > 1e-12;
-  });
+  // Memoized, with a map of spans by id: a 50,000-span trace must not pay O(n²) on every frame.
+  const byId = useMemo(() => new Map(trace.spans.map((s) => [s.id, s])), [trace]);
+  const changed = useMemo(
+    () =>
+      Object.keys(assign).some((id) => {
+        const span = byId.get(id);
+        return !!span && assign[id] !== span.model && Math.abs(spanCost(span, prices, assign) - spanCost(span, prices)) > 1e-12;
+      }),
+    [assign, byId, prices],
+  );
 
   const tot = useMemo(() => totals(trace), [trace]);
   const duration = Math.max(1, tot.duration);
@@ -136,6 +142,20 @@ export function Workbench({ trace, models, runs, current, pricesAt, pricesLive, 
   }, [setSheet]);
 
   const [menu, setMenu] = useState<"commands" | "keys" | null>(null);
+  // ⌘O opens the file chooser from anywhere. A menu left open behind it would be stale, so close it.
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "o") setMenu(null);
+    };
+    window.addEventListener("keydown", key, true);
+    return () => window.removeEventListener("keydown", key, true);
+  }, []);
+  // Each open of the command menu mounts it fresh, so it never shows the last search again.
+  const [menuSeq, setMenuSeq] = useState(0);
+  const openCommands = useCallback(() => {
+    setMenu("commands");
+    setMenuSeq((n) => n + 1);
+  }, [setMenu, setMenuSeq]);
   const [note, setNote] = useState<string | null>(null);
   const flash = useCallback((msg: string) => {
     setNote(msg);
@@ -220,7 +240,7 @@ export function Workbench({ trace, models, runs, current, pricesAt, pricesLive, 
       { id: "tab-step", group: view, label: "Step details", keys: ["3"], icon: <IconStep size={14} />, run: () => setTab("step") },
       { id: "search", group: view, label: "Search models", keys: ["/"], icon: <IconSearch size={14} />, run: focusSearch },
       { id: "recorded", group: view, label: "Show the recorded models", keys: ["X"], icon: <IconClose size={14} />, run: clearWhatIf },
-      { id: "commands", group: "App", label: "Open the command menu", keys: ["⌘", "K"], icon: <IconCommand size={14} />, run: () => { setPlaying(false); setMenu("commands"); } },
+      { id: "commands", group: "App", label: "Open the command menu", keys: ["⌘", "K"], icon: <IconCommand size={14} />, run: () => { setPlaying(false); openCommands(); } },
       { id: "shortcuts", group: "App", label: "Keyboard shortcuts", keys: ["?"], icon: <IconKeyboard size={14} />, run: () => setMenu("keys") },
       { id: "open", group: "App", label: "Open a trace", keys: ["⌘", "O"], icon: <IconOpen size={14} />, run: openFile },
       { id: "next-run", group: "App", label: "Next run", keys: ["N"], icon: <IconArrowRight size={14} />, run: () => goRun(1) },
@@ -235,7 +255,8 @@ export function Workbench({ trace, models, runs, current, pricesAt, pricesLive, 
     for (const m of priceable) {
       out.push({ id: `price:${m.id}`, searchOnly: !shown.has(m.id), group: "Price this run on", label: shortModel(m.id), hint: m.id.split("/")[0], keywords: `${m.id} ${m.name} model price`, meta: usd(modelCosts.get(m.id) ?? 0), icon: <IconLLM size={14} />, run: () => { setApplied(m.id); setStepModels({}); setTab("whatif"); seek(duration); } });
     }
-    for (const r of rows) out.push({ id: `step:${r.span.id}`, group: "Go to a step", label: r.span.name, hint: r.span.kind === "llm" ? shortModel(r.span.model ?? "") : kindName[r.span.kind], keywords: `${r.span.kind} ${r.span.model ?? ""}`, meta: r.span.kind === "llm" ? usd(costs.get(r.span.id) ?? 0) : undefined, icon: <KindMark kind={r.span.kind} error={r.span.status === "error"} />, run: () => { seek(r.span.end); select(r.span.id); document.querySelector(`[data-row="${CSS.escape(r.span.id)}"]`)?.scrollIntoView({ block: "center" }); } });
+    // Every step is one search away. A huge trace lists its first 3,000, so the menu still opens at once.
+    for (const r of rows.length > 3000 ? rows.slice(0, 3000) : rows) out.push({ id: `step:${r.span.id}`, group: "Go to a step", label: r.span.name, hint: r.span.kind === "llm" ? shortModel(r.span.model ?? "") : kindName[r.span.kind], keywords: `${r.span.kind} ${r.span.model ?? ""}`, meta: r.span.kind === "llm" ? usd(costs.get(r.span.id) ?? 0) : undefined, icon: <KindMark kind={r.span.kind} error={r.span.status === "error"} />, run: () => { seek(r.span.end); select(r.span.id); document.querySelector(`[data-row="${CSS.escape(r.span.id)}"]`)?.scrollIntoView({ block: "center" }); } });
     return out;
   };
   // Built only while a menu is open. The replay pauses then, so the list does not rebuild every frame.
@@ -252,7 +273,7 @@ export function Workbench({ trace, models, runs, current, pricesAt, pricesLive, 
         if (menu === "commands") setMenu(null);
         else {
           setPlaying(false);
-          setMenu("commands");
+          openCommands();
         }
         return;
       }
@@ -304,7 +325,7 @@ export function Workbench({ trace, models, runs, current, pricesAt, pricesLive, 
       window.removeEventListener("pointerdown", down, true);
       window.removeEventListener("keydown", key);
     };
-  }, [menu, togglePlay, seek, duration, t, stepCall, stepRow, copyStep, clearWhatIf, changeSpeed, focusSearch, goRun, selected]);
+  }, [menu, togglePlay, seek, duration, t, stepCall, stepRow, copyStep, clearWhatIf, changeSpeed, focusSearch, goRun, selected, openCommands]);
 
   const shared: Shared = { rows, costs, noPrice, duration, t, selected, highlight, hoverSpan, setHoverSpan, hoverTime, setHoverTime, onSelect: select, onSeek: seek };
   const selectedSpan = trace.spans.find((s) => s.id === selected) ?? null;
@@ -375,7 +396,7 @@ export function Workbench({ trace, models, runs, current, pricesAt, pricesLive, 
             type="button"
             onClick={() => {
               setPlaying(false);
-              setMenu("commands");
+              openCommands();
             }}
             aria-label="Open the command menu"
             aria-keyshortcuts="Meta+K"
@@ -420,14 +441,14 @@ export function Workbench({ trace, models, runs, current, pricesAt, pricesLive, 
         <main className="min-w-0 overflow-x-clip overscroll-none lg:overflow-y-auto">
           {/* The run, in one line of plain facts. */}
           <section className="border-b border-hair px-4 pb-5 pt-6 sm:px-6">
-            <h1 className="text-balance text-[21px] font-semibold tracking-[-0.022em] text-ink" style={{ fontFamily: "var(--font-display)" }}>
+            <h1 className="text-balance text-[21px] font-semibold tracking-[-0.022em] text-ink [overflow-wrap:anywhere]" style={{ fontFamily: "var(--font-display)" }}>
               {trace.title}
             </h1>
-            {trace.description && <p className="mt-1 max-w-[64ch] text-pretty text-[13.5px] leading-relaxed text-ink-2">{trace.description}</p>}
+            {trace.description && <p className="mt-1 max-w-[64ch] text-pretty text-[13.5px] leading-relaxed text-ink-2 [overflow-wrap:anywhere]">{trace.description}</p>}
             <p className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12.5px] text-ink-3 tnum">
               <Fact v={(duration / 1000).toFixed(1)}>s</Fact>
-              <Fact v={tot.llmCalls} sep>LLM calls</Fact>
-              <Fact v={tot.toolCalls} sep>tool calls</Fact>
+              <Fact v={tot.llmCalls} sep>{tot.llmCalls === 1 ? "LLM call" : "LLM calls"}</Fact>
+              <Fact v={tot.toolCalls} sep>{tot.toolCalls === 1 ? "tool call" : "tool calls"}</Fact>
               <Fact v={tokens(tot.prompt)} sep>input tokens</Fact>
               <Fact v={`${Math.round(tot.cacheHit * 100)}%`} warn={tot.cacheHit < 0.2 && tot.llmCalls > 3} sep>
                 cached input
@@ -493,7 +514,7 @@ export function Workbench({ trace, models, runs, current, pricesAt, pricesLive, 
               </span>
               {/* The end of the run: what it cost and where the biggest waste is. */}
               <AnimatePresence initial={false}>
-                {done && !changed && waste[0] && (
+                {done && !changed && !applied && waste[0] && (
                   <motion.button
                     type="button"
                     initial={{ opacity: 0, x: -4, filter: "blur(2px)" }}
@@ -516,7 +537,7 @@ export function Workbench({ trace, models, runs, current, pricesAt, pricesLive, 
               </AnimatePresence>
               {/* The what-if state, visible where the replay is. */}
               <AnimatePresence initial={false}>
-                {changed && (
+                {(changed || applied) && (
                   <motion.span
                     initial={{ opacity: 0, x: -4, filter: "blur(2px)" }}
                     animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
@@ -525,7 +546,7 @@ export function Workbench({ trace, models, runs, current, pricesAt, pricesLive, 
                     className="hidden min-w-0 items-center gap-1 rounded-full bg-white/[0.07] py-0.5 pl-2.5 pr-0.5 text-[12px] text-ink md:flex"
                   >
                     <span className="truncate">{pricedOn
-                        ? `Priced on ${pricedOn}`
+                        ? `Priced on ${pricedOn}${changed ? "" : ", same cost"}`
                         : applied
                           ? `Priced on ${shortModel(applied)}, ${Object.keys(stepModels).length} ${Object.keys(stepModels).length === 1 ? "step" : "steps"} changed`
                           : "Re-priced steps"}</span>
@@ -592,7 +613,7 @@ export function Workbench({ trace, models, runs, current, pricesAt, pricesLive, 
               key="sheet"
               role="dialog"
               aria-label="Step details"
-              className="fixed inset-x-0 bottom-0 z-40 max-h-[78dvh] overflow-y-auto overscroll-contain rounded-t-2xl bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_-24px_60px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_var(--hair-2)] lg:hidden"
+              className="fixed inset-x-0 bottom-0 z-40 max-h-[78dvh] overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-2xl bg-surface pb-[env(safe-area-inset-bottom)] shadow-[0_-24px_60px_-12px_rgba(0,0,0,0.85),inset_0_1px_0_var(--hair-2)] lg:hidden"
               initial={reduce ? { opacity: 0 } : { y: "100%" }}
               animate={reduce ? { opacity: 1 } : { y: 0 }}
               exit={reduce ? { opacity: 0 } : { y: "100%" }}
@@ -609,7 +630,7 @@ export function Workbench({ trace, models, runs, current, pricesAt, pricesLive, 
           </>
         )}
       </AnimatePresence>
-      <CommandMenu open={menu === "commands"} onClose={() => setMenu(null)} onShortcuts={() => setMenu("keys")} commands={commands} />
+      <CommandMenu key={menuSeq} open={menu === "commands"} onClose={() => setMenu(null)} onShortcuts={() => setMenu("keys")} commands={commands} />
       <ShortcutsSheet open={menu === "keys"} onClose={() => setMenu(null)} commands={commands.filter((c) => !c.id.includes(":"))} />
       <div aria-live="polite" className="pointer-events-none fixed inset-x-0 bottom-5 z-40 flex justify-center">
         <AnimatePresence>
@@ -650,25 +671,37 @@ function Fact({ v, children, warn }: { v?: string | number; children: React.Reac
 
 
 /** Spans in tree order: each parent, then its children by start time. */
+/**
+ * The steps as a tree, in time order. It walks with its own stack, not recursion, so a very deep
+ * trace cannot overflow the call stack. Spans in a parent cycle never hang from a root; they join
+ * the list at the top level, so no step goes missing.
+ */
 function order(spans: Span[]): Row[] {
   const ids = new Set(spans.map((s) => s.id));
   const kids = new Map<string | null, Span[]>();
   for (const s of spans) {
-    const p = s.parentId && ids.has(s.parentId) ? s.parentId : null;
+    const p = s.parentId && ids.has(s.parentId) && s.parentId !== s.id ? s.parentId : null;
     const arr = kids.get(p) ?? [];
     arr.push(s);
     kids.set(p, arr);
   }
+  const byTime = (a: Span, b: Span) => a.start - b.start || (a.kind === "agent" ? -1 : 1);
+  for (const arr of kids.values()) arr.sort(byTime);
   const out: Row[] = [];
   const seen = new Set<string>();
-  const walk = (p: string | null, depth: number) => {
-    for (const s of (kids.get(p) ?? []).sort((a, b) => a.start - b.start || (a.kind === "agent" ? -1 : 1))) {
+  const walk = (roots: Span[]) => {
+    const stack: { s: Span; depth: number }[] = roots.map((s) => ({ s, depth: 0 })).reverse();
+    while (stack.length) {
+      const { s, depth } = stack.pop()!;
       if (seen.has(s.id)) continue;
       seen.add(s.id);
       out.push({ span: s, depth: Math.min(depth, 6) });
-      walk(s.id, depth + 1);
+      const children = kids.get(s.id) ?? [];
+      for (let i = children.length - 1; i >= 0; i--) stack.push({ s: children[i], depth: depth + 1 });
     }
   };
-  walk(null, 0);
+  walk(kids.get(null) ?? []);
+  // Spans that only hang from each other, in a cycle.
+  if (seen.size < spans.length) walk(spans.filter((s) => !seen.has(s.id)).sort(byTime));
   return out;
 }
