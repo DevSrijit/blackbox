@@ -244,9 +244,14 @@ void main() {
   // In the galaxy the newest tokens, out at the rim, glow brightest; the far side dims a little.
   float rim = aGal.w * aGal.w;
   float glow = (0.5 + 0.9 * rim) * mix(1.15, 0.75, clamp(g3.z * 0.5 + 0.5, 0.0, 1.0));
-  // Dots behind the headline step back, so the type stays crisp.
-  vec2 qd = max(uQuiet.xy - hero, hero - uQuiet.zw);
-  float quiet = mix(0.22, 1.0, smoothstep(0.0, 48.0, max(qd.x, qd.y)));
+  // Dots behind the text step back, so the type stays crisp. The distance is to a rounded box,
+  // and the fall-off is long and eased, so the edge of the quiet area never shows as a shape.
+  vec2 qc = (uQuiet.xy + uQuiet.zw) * 0.5;
+  vec2 qh = (uQuiet.zw - uQuiet.xy) * 0.5;
+  vec2 qd = abs(hero - qc) - qh + 40.0;
+  float qdist = length(max(qd, 0.0)) + min(max(qd.x, qd.y), 0.0) - 40.0;
+  float qt = smoothstep(-60.0, 170.0, qdist);
+  float quiet = mix(0.16, 1.0, qt * qt * (3.0 - 2.0 * qt));
   float shine = (0.55 + 0.45 * fract(seed * 7.13)) * mix(glow * quiet, 1.0, w);
   float twinkle = 1.0 + 0.18 * sin(uTime * (1.3 + seed * 2.0) + seed * 60.0);
   float base = mix(uAlpha.x, mix(uAlpha.z, uAlpha.y, e), w);
