@@ -52,7 +52,7 @@ export type Trace = {
   id: string;
   title: string;
   description?: string;
-  source: "demo" | "otel" | "openai" | "blackbox";
+  source: "demo" | "otel" | "openai" | "blackbox" | "claude-code" | "codex";
   startedAt: string;
   spans: Span[];
 };

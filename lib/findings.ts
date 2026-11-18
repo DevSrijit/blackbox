@@ -100,7 +100,10 @@ export function findings(trace: Trace, prices: Prices): Finding[] {
   // 3. The same tool with the same arguments, again and again.
   {
     const tools = trace.spans.filter((s) => s.kind === "tool" && s.tool);
-    const seen = group(tools, (s) => `${s.parentId}|${s.tool!.name}|${stable(s.tool!.args)}`);
+    // Same tool, same arguments, same result: a true repeat. A tool that is meant to be called
+    // again (a plan step, a poll) returns something new each time and is not flagged. When the
+    // trace has no results, the arguments alone decide.
+    const seen = group(tools, (s) => `${s.parentId}|${s.tool!.name}|${stable(s.tool!.args)}|${stable(s.tool!.result ?? null)}`);
     for (const [, calls] of seen) {
       if (calls.length < 3) continue;
       const askers = calls.slice(1).map((t) => precedingLlm(llm, t)).filter(Boolean) as Span[];

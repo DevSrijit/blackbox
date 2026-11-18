@@ -156,7 +156,7 @@ export function Landing({
 
       <div className="mx-auto max-w-[1280px] px-5 sm:px-8">
         <p className="max-w-[64ch] pb-10 pt-16 text-pretty text-[13px] leading-relaxed text-ink-3">
-          Blackbox reads OpenTelemetry JSON (GenAI or OpenInference attributes), JSON lines of OpenAI or OpenRouter calls, and its own format, up to 50 MB. It reads the file in your browser and stores nothing. It prices runs on {showcase.modelCount} OpenRouter models, and re-pricing always keeps the recorded tokens.
+          Blackbox reads Claude Code and Codex session logs, OpenTelemetry JSON (GenAI or OpenInference attributes), JSON lines of OpenAI or OpenRouter calls, and its own format, up to 250 MB. It reads the file in your browser and stores nothing. It prices runs on {showcase.modelCount} OpenRouter models, and re-pricing always keeps the recorded tokens.
         </p>
         <footer className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-hair py-6 text-[13px] text-ink-3">
           <span>

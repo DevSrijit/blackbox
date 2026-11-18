@@ -33,6 +33,20 @@ const OpenerContext = createContext<Ctx>({ openFile: () => {}, version: 0, load:
 
 export const useOpener = () => useContext(OpenerContext);
 
+/** Session logs with many sub-agents can be large. A larger file would not fit in a browser tab's memory. */
+const MAX_BYTES = 250 * 1024 * 1024;
+
+/**
+ * Files opened together become one trace: a Claude Code session and the sub-agent logs in its
+ * "subagents" folder. They are joined as JSON lines; the adapter orders the lines by time.
+ */
+function asOne(list: FileList | null | undefined): File | null {
+  const files = list ? Array.from(list) : [];
+  if (files.length <= 1) return files[0] ?? null;
+  const main = files.find((f) => !f.name.startsWith("agent-")) ?? files[0];
+  return new File(files.flatMap((f) => [f, "\n"]), main.name, { type: "application/jsonl" });
+}
+
 export function Opener({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const path = usePathname();
@@ -55,7 +69,7 @@ export function Opener({ children }: { children: React.ReactNode }) {
   const load = useCallback(
     async (file: File, before?: () => Promise<void>) => {
       try {
-        if (file.size > 50 * 1024 * 1024) throw new TraceError("This file is larger than 50 MB. Blackbox reads traces up to 50 MB.");
+        if (file.size > MAX_BYTES) throw new TraceError("This trace is larger than 250 MB. Blackbox reads traces up to 250 MB. Open one session file, without its sub-agent files.");
         const trace = parseTrace(await file.text(), file.name);
         if (!trace.spans.some((s) => s.kind === "llm")) throw new TraceError("This trace has no LLM calls, so it has no cost to show.");
         setOpened(trace);
@@ -95,7 +109,7 @@ export function Opener({ children }: { children: React.ReactNode }) {
       e.preventDefault();
       depth = 0;
       setDropping(false);
-      const f = e.dataTransfer?.files?.[0];
+      const f = asOne(e.dataTransfer?.files);
       if (!f) {
         target.current?.leave();
         return;
@@ -137,11 +151,12 @@ export function Opener({ children }: { children: React.ReactNode }) {
         ref={input}
         type="file"
         accept=".json,.jsonl,.ndjson,application/json,application/x-ndjson,application/jsonl,text/plain"
+        multiple
         className="hidden"
         aria-hidden
         tabIndex={-1}
         onChange={(e) => {
-          const f = e.target.files?.[0];
+          const f = asOne(e.target.files);
           e.target.value = "";
           if (!f) return;
           if (target.current) target.current.drop(f, window.innerWidth / 2, window.innerHeight / 2);
@@ -164,7 +179,7 @@ export function Opener({ children }: { children: React.ReactNode }) {
               className="w-full max-w-[460px] rounded-2xl border border-dashed border-white/25 px-10 py-12 text-center"
             >
               <div className="text-[18px] font-semibold tracking-[-0.015em] text-ink">Drop the file to replay it</div>
-              <p className="mx-auto mt-2 max-w-[34ch] text-pretty text-[13px] leading-relaxed text-ink-2">OpenTelemetry JSON, JSON lines of OpenAI or OpenRouter calls, or a Blackbox file. It stays in your browser.</p>
+              <p className="mx-auto mt-2 max-w-[34ch] text-pretty text-[13px] leading-relaxed text-ink-2">A Claude Code or Codex session, OpenTelemetry JSON, JSON lines of OpenAI or OpenRouter calls, or a Blackbox file. It stays in your browser.</p>
             </motion.div>
           </motion.div>
         )}
