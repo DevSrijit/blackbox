@@ -4,23 +4,41 @@ A flight recorder for AI agents.
 
 Drop in the trace of one agent run. Blackbox replays the run step by step, shows what each LLM call cost, finds the waste, and prices the whole run again on any OpenRouter model.
 
-![The billing agent demo in Blackbox. The run is priced again on claude-sonnet-5.5, and the hatched band shows the money saved.](docs/replay.png)
+![The research agent demo, priced again on kimi-k3.1-pro. The pointer is on one LLM call: its time, its band in the timeline and its input split into full price and cached all show. The Compare list is sorted by use on OpenRouter.](docs/replay.webp)
 
 Everything runs in your browser. Blackbox has no account and no upload. The server only refreshes the OpenRouter price list once an hour.
 
 ## What it shows
 
-- **The replay.** A spend line climbs as the run plays. Under it, a bar for each LLM call shows the input that the call sent, split into full-price tokens and cached tokens. A timeline lists every step: agents, LLM calls, tool calls and retrievals.
-- **Compare models.** Pick a model, and Blackbox prices every LLM call on it. The spend line moves to the new cost, and the band between the two lines is the money you save. You can also set a different model on one step only. Any OpenRouter model id works, including one that Blackbox has no price for.
-- **Waste.** Five checks look for money that a cheaper setup can save:
-  - earlier conversation sent again at full price, where prompt caching would bill it at the cache price;
-  - failed steps, and the LLM calls that asked for them;
-  - the same tool called 3 or more times with the same arguments;
-  - tool definitions that are more than 8% of the input on every call;
-  - a model that costs $1.50 or more for each 1M input tokens, on a call that returns 40 tokens or fewer and calls no tools.
+### The replay
 
-  Each finding names its steps and an estimated saving. The findings can overlap, so Blackbox combines them in sequence and never adds them up directly.
-- **Step details.** The input, output, cache and cost lines of one step, with its prompt and its result.
+A spend line climbs as the run plays. Under it, a bar for each LLM call shows the input that the call sent, split into full-price tokens and cached tokens. A timeline lists every step: agents, LLM calls, tool calls and retrievals. Point at a call to see its time and its input.
+
+### Compare models
+
+Pick a model, and Blackbox prices every LLM call on it. The spend line moves to the new cost, and the hatched band between the two lines is the money you save. The list shows the most used models on OpenRouter in the last 4 weeks. Sort it by price, by use or by release date, and point at a row to see its prices for each 1M tokens.
+
+![The billing agent demo, priced again on claude-sonnet-5.5 for 47% less. The pointer is on a row in the Compare list, which shows that model's input, output and cache prices.](docs/compare.webp)
+
+### Waste
+
+Five checks look for money that a cheaper setup can save:
+
+- earlier conversation sent again at full price, where prompt caching would bill it at the cache price;
+- failed steps, and the LLM calls that asked for them;
+- the same tool called 3 or more times with the same arguments;
+- tool definitions that are more than 8% of the input on every call;
+- a model that costs $1.50 or more for each 1M input tokens, on a call that returns 40 tokens or fewer and calls no tools.
+
+Each finding names its steps and an estimated saving. Point at a finding, and its steps light up in the timeline and the input bars. The findings can overlap, so Blackbox combines them in sequence and never adds them up directly.
+
+![The Waste tab of the billing agent demo. The pointer is on the biggest finding, and its 10 LLM calls show in orange in the timeline and the input bars.](docs/waste.webp)
+
+### One step
+
+The input, output, cache and cost lines of one step, with its prompt and its result. Set a different model for this step only: search every OpenRouter model, see this step's cost on each, or type any model id. One click puts the step back on its recorded model.
+
+![The Step tab of the coding agent demo. The model picker is open on a search for kimi, with the cost of this one step on each model.](docs/step.webp)
 
 ## Honesty rules
 
@@ -43,6 +61,8 @@ The limit is 50 MB for each file. Times can be in seconds or milliseconds. Black
 ## Keyboard
 
 Press `?` in a replay to see every shortcut. Press `⌘K` to open the command menu. The most used keys:
+
+![The command menu, searching deepseek. Each model shows what the whole run would cost on it.](docs/commands.webp)
 
 | Key | Action |
 | --- | --- |
