@@ -4,7 +4,8 @@ import { getFeatured } from "@/lib/featured";
 import { getModels } from "@/lib/models";
 import { demoRuns } from "@/lib/runs";
 
-export const metadata: Metadata = { title: "Your trace" };
+// A visitor's own file: never indexed.
+export const metadata: Metadata = { title: "Your trace", robots: { index: false, follow: false } };
 
 export default async function TracePage() {
   const { models, fetchedAt, live } = await getModels();
