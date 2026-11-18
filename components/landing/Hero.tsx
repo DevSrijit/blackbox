@@ -91,7 +91,7 @@ export function Hero({
         </ul>
         {/* Your own trace is the second way in. It sits on its own frosted backing, since the field runs
             behind it. A phone cannot drag a file in, so there the hint about dropping goes away. */}
-        <div className="mt-3 inline-flex items-center gap-3 rounded-xl bg-raised/85 p-1.5 text-[13px] text-ink-3 shadow-[inset_0_0_0_1px_var(--hair)] backdrop-blur-md sm:pr-3.5">
+        <div className="mt-3 inline-flex items-center gap-3 rounded-xl bg-raised/85 p-1.5 text-[13px] text-ink-3 shadow-[inset_0_0_0_1px_var(--hair)] pointer-fine:backdrop-blur-md sm:pr-3.5">
           <button
             type="button"
             onClick={openFile}
@@ -184,7 +184,7 @@ function Chip({ chip, live, field, onLaunch, story }: { chip: DemoChip; live: bo
           const r = e.currentTarget.getBoundingClientRect();
           onLaunch(href, r.left + r.width / 2, r.top + r.height / 2);
         }}
-        className={`group flex touch-none select-none items-center gap-3 rounded-xl bg-raised/85 py-2.5 pl-3 pr-3 text-[13px] backdrop-blur-md transition-[box-shadow,background-color,transform] duration-150 ease-out hover:-translate-y-px hover:bg-raised hover:shadow-[0_12px_32px_-12px_rgba(0,0,0,0.9),inset_0_0_0_1px_rgba(255,255,255,0.26)] pointer-coarse:touch-pan-y sm:w-[340px] ${story ? "shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]" : "shadow-[inset_0_0_0_1px_var(--hair-2)]"} ${
+        className={`group flex touch-none select-none items-center gap-3 rounded-xl bg-raised/85 py-2.5 pl-3 pr-3 text-[13px] pointer-fine:backdrop-blur-md transition-[box-shadow,background-color,transform] duration-150 ease-out hover:-translate-y-px hover:bg-raised hover:shadow-[0_12px_32px_-12px_rgba(0,0,0,0.9),inset_0_0_0_1px_rgba(255,255,255,0.26)] pointer-coarse:touch-pan-y sm:w-[340px] ${story ? "shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)]" : "shadow-[inset_0_0_0_1px_var(--hair-2)]"} ${
           live ? (held ? "cursor-grabbing shadow-[0_24px_60px_-12px_rgba(0,0,0,0.9),inset_0_0_0_1px_rgba(255,255,255,0.3)]" : "cursor-grab") : ""
         } ${held ? "scale-[1.04]" : "active:scale-[0.98]"}`}
       >

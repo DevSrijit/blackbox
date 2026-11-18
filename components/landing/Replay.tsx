@@ -3,7 +3,8 @@
 // Scene one of the showcase: scroll is the playhead. Each LLM call pulls its tokens out of the
 // cloud into a bar while the playhead crosses it. Width is time, height is tokens.
 
-import { motion, useMotionValueEvent, useScroll, useTransform, type MotionValue } from "motion/react";
+import { motion, useMotionValueEvent, useScroll, useTransform } from "motion/react";
+import { usePinnedText } from "./pinned";
 import { useRef } from "react";
 import { usd } from "@/lib/cost";
 import { clock, shortModel } from "../ui";
@@ -61,17 +62,13 @@ function ReplayLive({ run, total, field }: Props) {
 
   const playLeft = useTransform(play, (p) => at(p));
   const playFade = useTransform(scrollYProgress, [0.9, 1], [1, 0]);
-  // The text layer is held at its pinned place while the section arrives, so it never slides
-  // across the field; it sharpens in, and fades before the pin lets go.
-  const { scrollYProgress: enter } = useScroll({ target: section, offset: ["start end", "start start"] });
-  const holdY = useTransform(enter, (e) => -(1 - e) * (typeof window === "undefined" ? 0 : window.innerHeight));
-  const out = useTransform([enter, scrollYProgress] as MotionValue<number>[], ([e, q]: number[]) => Math.min(Math.max(0, Math.min(1, (e - 0.45) / 0.5)), 1 - Math.max(0, Math.min(1, (q - 0.88) / 0.1))));
-  const outBlur = useTransform(out, (o) => `blur(${((1 - o) * 12).toFixed(2)}px)`);
+  // The text layer shows only while pinned, and never moves by script (see pinned.ts).
+  const text = usePinnedText(scrollYProgress, 0.04);
   const last = run.calls[run.calls.length - 1];
 
   return (
     <section ref={section} className="relative h-[260svh]" aria-labelledby="replay-title">
-      <motion.div className="pointer-events-none sticky top-0 h-svh overflow-clip" style={{ opacity: out, filter: outBlur, y: holdY }}>
+      <motion.div className="pointer-events-none sticky top-0 h-svh overflow-clip" style={text}>
         <div className="mx-auto grid max-w-[1280px] gap-6 px-5 pt-[clamp(72px,12svh,120px)] sm:px-8 md:grid-cols-[minmax(0,1fr)_auto]">
           <div>
             <h2 id="replay-title" className="max-w-[16ch] text-balance text-[clamp(32px,4.4vw,56px)] font-semibold leading-[1] tracking-[-0.035em]" style={{ fontFamily: "var(--font-display)" }}>
@@ -82,7 +79,7 @@ function ReplayLive({ run, total, field }: Props) {
             </p>
           </div>
           {/* The readout: the same facts the replay shows for the step under the playhead. */}
-          <dl className="grid w-fit grid-cols-[auto_auto] gap-x-6 gap-y-1.5 self-start rounded-xl bg-raised/70 px-4 py-3 text-[13px] shadow-[inset_0_0_0_1px_var(--hair)] backdrop-blur-md md:min-w-[280px]">
+          <dl className="grid w-fit grid-cols-[auto_auto] gap-x-6 gap-y-1.5 self-start rounded-xl bg-raised/70 px-4 py-3 text-[13px] shadow-[inset_0_0_0_1px_var(--hair)] pointer-fine:backdrop-blur-md md:min-w-[280px]">
             <dt className="text-ink-3">Time</dt>
             <dd className="text-right font-mono text-ink tnum">
               <span ref={time}>00:00.0</span>

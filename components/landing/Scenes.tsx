@@ -12,6 +12,7 @@ import { useOpener } from "../Opener";
 import { Key, shortModel } from "../ui";
 import type { CallMark, CallPrice, FieldApi } from "./field/Field";
 import { REPLAY, tokensOf, type FieldRun } from "./field/layout";
+import { usePinnedText } from "./pinned";
 import { at, PAD, ticks, type Failure } from "./Replay";
 
 export type Showcase = {
@@ -45,18 +46,10 @@ const warmth = (p: number, ref: number) => Math.pow(clamp01(p / ref), 0.6);
 const secs = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 const display = { fontFamily: "var(--font-display)" };
 
-/**
- * Progress of a scene while it is pinned, and the style of its text layer. While the section
- * scrolls in, the text is held at its pinned place, so it never slides across the chart; it only
- * sharpens in. It fades out before the pin lets go.
- */
+/** Progress of a scene while it is pinned, and the style of its text layer (see pinned.ts). */
 export function useScene(ref: React.RefObject<HTMLElement | null>) {
   const { scrollYProgress: p } = useScroll({ target: ref, offset: ["start start", "end end"] });
-  const { scrollYProgress: enter } = useScroll({ target: ref, offset: ["start end", "start start"] });
-  const y = useTransform(enter, (e) => -(1 - e) * (typeof window === "undefined" ? 0 : window.innerHeight));
-  const opacity = useTransform([enter, p] as MotionValue<number>[], ([e, q]: number[]) => Math.min(smooth((e - 0.45) / 0.5), 1 - smooth((q - 0.88) / 0.1)));
-  const filter = useTransform(opacity, (o) => `blur(${((1 - o) * 12).toFixed(2)}px)`);
-  return { p, style: { opacity, filter, y } };
+  return { p, style: usePinnedText(p) };
 }
 
 function Heading({ children, id }: { children: React.ReactNode; id?: string }) {
@@ -475,11 +468,11 @@ export function Outro({ live, field, chips }: { live: boolean; field: FieldApi; 
     field.origin(smooth((v - 0.075) / 0.03));
     field.ring(smooth((v - 0.17) / 0.42));
   });
-  const opacity = useTransform(p, (q) => (live ? smooth((q - 0.36) / 0.2) : 1));
-  const scale = useTransform(opacity, [0, 1], [0.94, 1]);
+  // The text fades in once the ring has formed, and stays: this is the last scene.
+  const text = usePinnedText(p, 0.56, 2);
   return (
     <section ref={section} className={`relative ${live ? "h-[200svh]" : ""}`} aria-labelledby="outro-title">
-      <motion.div className={`${live ? "sticky top-0 h-svh" : "py-28"} grid place-items-center px-5`} style={live ? { opacity, scale } : undefined}>
+      <motion.div className={`${live ? "sticky top-0 h-svh" : "py-28"} grid place-items-center px-5`} style={live ? text : undefined}>
         <OutroBody chips={chips} />
       </motion.div>
     </section>
