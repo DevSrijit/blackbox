@@ -4,6 +4,8 @@ A flight recorder for AI agents.
 
 Drop in the trace of one agent run. Blackbox replays the run step by step, shows what each LLM call cost, finds the waste, and prices the whole run again on any OpenRouter model.
 
+**Try it: [getblackbox.vercel.app](https://getblackbox.vercel.app)**. Open a demo run, or drop in a Claude Code or Codex session from your own disk.
+
 ![The research agent demo, priced again on kimi-k3.1-pro. The pointer is on one LLM call: its time, its band in the timeline and its input split into full price and cached all show. The Compare list is sorted by use on OpenRouter.](docs/replay.webp)
 
 Everything runs in your browser. Blackbox has no account and no upload. The server only refreshes the OpenRouter price list once an hour.
