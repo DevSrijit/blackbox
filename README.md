@@ -48,15 +48,17 @@ The input, output, cache and cost lines of one step, with its prompt and its res
 
 ## Trace formats
 
-Blackbox reads three formats. It finds the format from the file content, not the file name.
+Blackbox finds the format from the file content, not the file name. To find these files on your disk, or to make one, read [Open your agent's runs in Blackbox](docs/opening-traces.md).
 
 | Format | What it reads |
 | --- | --- |
+| Claude Code session | `~/.claude/projects/<project>/<session>.jsonl`, with its `subagents/` files if you open them together |
+| Codex session | `~/.codex/sessions/<year>/<month>/<day>/rollout-*.jsonl` |
 | OpenTelemetry JSON | Spans with GenAI (`gen_ai.*`) or OpenInference (`llm.*`) attributes |
 | Chat lines | JSON lines of OpenAI or OpenRouter chat completion requests and responses |
 | Blackbox JSON | The native format. See `lib/types.ts` and `data/traces/` |
 
-The limit is 50 MB for each file. Times can be in seconds or milliseconds. Blackbox moves every trace so that it starts at zero.
+The limit is 250 MB. Times can be in seconds or milliseconds. Blackbox moves every trace so that it starts at zero. In a Claude Code or Codex session, the time that the session waits for your next message is taken out, and the run says how much.
 
 ## Keyboard
 
