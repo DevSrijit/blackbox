@@ -1,0 +1,2742 @@
+{
+ "blackbox": 1,
+ "id": "billing-agent",
+ "title": "Billing agent",
+ "description": "A support agent refunds a duplicate charge. It calls one tool 3 times with the same arguments, waits 30 seconds for a gateway timeout, and sends its whole conversation again on every call.",
+ "source": "demo",
+ "startedAt": "2026-11-12T15:04:11.000Z",
+ "spans": [
+  {
+   "id": "support-agent",
+   "parentId": null,
+   "kind": "agent",
+   "name": "support-agent",
+   "start": 0,
+   "end": 53077,
+   "status": "ok"
+  },
+  {
+   "id": "support-agent:llm0",
+   "parentId": "support-agent",
+   "kind": "llm",
+   "name": "route_intent",
+   "start": 0,
+   "end": 668,
+   "status": "ok",
+   "model": "anthropic/claude-opus-5.5",
+   "usage": {
+    "input": 3906,
+    "output": 6,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are the billing support agent for a medical clinic.\nFollow billing policy BP-14. Verify the patient before any account change.\nNever reveal full payment details. Refunds above 500 USD need supervisor approval.\nBe concise and warm. Today is 2026-11-12."
+    },
+    {
+     "role": "user",
+     "content": "Hi, this is Hana Lin. I was charged twice for my visit on October 28 — $186 both times. Can you refund the duplicate?"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "billing_dispute"
+   },
+   "tools": [
+    {
+     "name": "lookup_patient",
+     "description": "Find a patient record by name, date of birth or patient ID. Returns demographics, insurance plan, balance and contact preferences. Use this before any billing action so the right account is changed.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "query": {
+        "type": "string",
+        "description": "Name, DOB (YYYY-MM-DD) or patient ID"
+       }
+      },
+      "required": [
+       "query"
+      ]
+     }
+    },
+    {
+     "name": "get_invoices",
+     "description": "List invoices for a patient with line items, CPT codes, payer adjustments, payments and status. Results are sorted newest first and include up to 50 invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "since": {
+        "type": "string",
+        "description": "ISO date"
+       }
+      },
+      "required": [
+       "patient_id"
+      ]
+     }
+    },
+    {
+     "name": "check_refund_policy",
+     "description": "Ask the policy agent whether a refund is allowed under the clinic's billing policy BP-14, including duplicate charges, insurance timing and approval limits.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "case": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "case"
+      ]
+     }
+    },
+    {
+     "name": "issue_refund",
+     "description": "Issue a refund to the original payment method. Amounts above 500 USD need a supervisor approval id. Idempotent per invoice and line item.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "invoice_id": {
+        "type": "string"
+       },
+       "line_id": {
+        "type": "string"
+       },
+       "amount": {
+        "type": "number"
+       },
+       "reason": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "invoice_id",
+       "amount",
+       "reason"
+      ]
+     }
+    },
+    {
+     "name": "send_email",
+     "description": "Send an email to the patient using an approved template. Templates: refund_issued, refund_denied, need_more_info, payment_plan.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "template": {
+        "type": "string"
+       },
+       "variables": {
+        "type": "object"
+       }
+      },
+      "required": [
+       "patient_id",
+       "template"
+      ]
+     }
+    },
+    {
+     "name": "create_ticket",
+     "description": "Create an internal ticket for the billing team with priority, summary and links to the patient and invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       },
+       "priority": {
+        "type": "string",
+        "enum": [
+         "low",
+         "normal",
+         "high"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_payment_methods",
+     "description": "List saved payment methods with last four digits, brand and status. Never returns full card numbers.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "add_note",
+     "description": "Add a note to the patient's billing record. Notes are visible to staff only.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "note": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "escalate_to_human",
+     "description": "Hand the conversation to a human billing specialist with a summary of what was checked and what remains.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "support-agent:llm1",
+   "parentId": "support-agent",
+   "kind": "llm",
+   "name": "plan → lookup_patient",
+   "start": 708,
+   "end": 1581,
+   "status": "ok",
+   "model": "anthropic/claude-opus-5.5",
+   "usage": {
+    "input": 3912,
+    "output": 14,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are the billing support agent for a medical clinic.\nFollow billing policy BP-14. Verify the patient before any account change.\nNever reveal full payment details. Refunds above 500 USD need supervisor approval.\nBe concise and warm. Today is 2026-11-12."
+    },
+    {
+     "role": "user",
+     "content": "Hi, this is Hana Lin. I was charged twice for my visit on October 28 — $186 both times. Can you refund the duplicate?"
+    },
+    {
+     "role": "assistant",
+     "content": "billing_dispute"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "support-agent:llm1:c0",
+      "name": "lookup_patient",
+      "args": {
+       "query": "Hana Lin"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "lookup_patient",
+     "description": "Find a patient record by name, date of birth or patient ID. Returns demographics, insurance plan, balance and contact preferences. Use this before any billing action so the right account is changed.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "query": {
+        "type": "string",
+        "description": "Name, DOB (YYYY-MM-DD) or patient ID"
+       }
+      },
+      "required": [
+       "query"
+      ]
+     }
+    },
+    {
+     "name": "get_invoices",
+     "description": "List invoices for a patient with line items, CPT codes, payer adjustments, payments and status. Results are sorted newest first and include up to 50 invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "since": {
+        "type": "string",
+        "description": "ISO date"
+       }
+      },
+      "required": [
+       "patient_id"
+      ]
+     }
+    },
+    {
+     "name": "check_refund_policy",
+     "description": "Ask the policy agent whether a refund is allowed under the clinic's billing policy BP-14, including duplicate charges, insurance timing and approval limits.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "case": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "case"
+      ]
+     }
+    },
+    {
+     "name": "issue_refund",
+     "description": "Issue a refund to the original payment method. Amounts above 500 USD need a supervisor approval id. Idempotent per invoice and line item.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "invoice_id": {
+        "type": "string"
+       },
+       "line_id": {
+        "type": "string"
+       },
+       "amount": {
+        "type": "number"
+       },
+       "reason": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "invoice_id",
+       "amount",
+       "reason"
+      ]
+     }
+    },
+    {
+     "name": "send_email",
+     "description": "Send an email to the patient using an approved template. Templates: refund_issued, refund_denied, need_more_info, payment_plan.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "template": {
+        "type": "string"
+       },
+       "variables": {
+        "type": "object"
+       }
+      },
+      "required": [
+       "patient_id",
+       "template"
+      ]
+     }
+    },
+    {
+     "name": "create_ticket",
+     "description": "Create an internal ticket for the billing team with priority, summary and links to the patient and invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       },
+       "priority": {
+        "type": "string",
+        "enum": [
+         "low",
+         "normal",
+         "high"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_payment_methods",
+     "description": "List saved payment methods with last four digits, brand and status. Never returns full card numbers.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "add_note",
+     "description": "Add a note to the patient's billing record. Notes are visible to staff only.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "note": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "escalate_to_human",
+     "description": "Hand the conversation to a human billing specialist with a summary of what was checked and what remains.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "support-agent:tool3",
+   "parentId": "support-agent",
+   "kind": "tool",
+   "name": "lookup_patient",
+   "start": 1621,
+   "end": 2041,
+   "status": "ok",
+   "tool": {
+    "name": "lookup_patient",
+    "args": {
+     "query": "Hana Lin"
+    },
+    "result": {
+     "patient_id": "P-20417",
+     "name": "Hana Lin",
+     "dob": "1991-03-08",
+     "plan": "PPO",
+     "balance": 0,
+     "email_ok": true
+    }
+   }
+  },
+  {
+   "id": "support-agent:llm2",
+   "parentId": "support-agent",
+   "kind": "llm",
+   "name": "plan → get_invoices",
+   "start": 2071,
+   "end": 3097,
+   "status": "ok",
+   "model": "anthropic/claude-opus-5.5",
+   "usage": {
+    "input": 3964,
+    "output": 20,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are the billing support agent for a medical clinic.\nFollow billing policy BP-14. Verify the patient before any account change.\nNever reveal full payment details. Refunds above 500 USD need supervisor approval.\nBe concise and warm. Today is 2026-11-12."
+    },
+    {
+     "role": "user",
+     "content": "Hi, this is Hana Lin. I was charged twice for my visit on October 28 — $186 both times. Can you refund the duplicate?"
+    },
+    {
+     "role": "assistant",
+     "content": "billing_dispute"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm1:c0",
+       "name": "lookup_patient",
+       "args": {
+        "query": "Hana Lin"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "lookup_patient",
+     "content": "{\"patient_id\":\"P-20417\",\"name\":\"Hana Lin\",\"dob\":\"1991-03-08\",\"plan\":\"PPO\",\"balance\":0,\"email_ok\":true}"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "support-agent:llm2:c0",
+      "name": "get_invoices",
+      "args": {
+       "patient_id": "P-20417",
+       "since": "2026-10-01"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "lookup_patient",
+     "description": "Find a patient record by name, date of birth or patient ID. Returns demographics, insurance plan, balance and contact preferences. Use this before any billing action so the right account is changed.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "query": {
+        "type": "string",
+        "description": "Name, DOB (YYYY-MM-DD) or patient ID"
+       }
+      },
+      "required": [
+       "query"
+      ]
+     }
+    },
+    {
+     "name": "get_invoices",
+     "description": "List invoices for a patient with line items, CPT codes, payer adjustments, payments and status. Results are sorted newest first and include up to 50 invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "since": {
+        "type": "string",
+        "description": "ISO date"
+       }
+      },
+      "required": [
+       "patient_id"
+      ]
+     }
+    },
+    {
+     "name": "check_refund_policy",
+     "description": "Ask the policy agent whether a refund is allowed under the clinic's billing policy BP-14, including duplicate charges, insurance timing and approval limits.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "case": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "case"
+      ]
+     }
+    },
+    {
+     "name": "issue_refund",
+     "description": "Issue a refund to the original payment method. Amounts above 500 USD need a supervisor approval id. Idempotent per invoice and line item.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "invoice_id": {
+        "type": "string"
+       },
+       "line_id": {
+        "type": "string"
+       },
+       "amount": {
+        "type": "number"
+       },
+       "reason": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "invoice_id",
+       "amount",
+       "reason"
+      ]
+     }
+    },
+    {
+     "name": "send_email",
+     "description": "Send an email to the patient using an approved template. Templates: refund_issued, refund_denied, need_more_info, payment_plan.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "template": {
+        "type": "string"
+       },
+       "variables": {
+        "type": "object"
+       }
+      },
+      "required": [
+       "patient_id",
+       "template"
+      ]
+     }
+    },
+    {
+     "name": "create_ticket",
+     "description": "Create an internal ticket for the billing team with priority, summary and links to the patient and invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       },
+       "priority": {
+        "type": "string",
+        "enum": [
+         "low",
+         "normal",
+         "high"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_payment_methods",
+     "description": "List saved payment methods with last four digits, brand and status. Never returns full card numbers.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "add_note",
+     "description": "Add a note to the patient's billing record. Notes are visible to staff only.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "note": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "escalate_to_human",
+     "description": "Hand the conversation to a human billing specialist with a summary of what was checked and what remains.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "support-agent:tool5",
+   "parentId": "support-agent",
+   "kind": "tool",
+   "name": "get_invoices",
+   "start": 3137,
+   "end": 4017,
+   "status": "ok",
+   "tool": {
+    "name": "get_invoices",
+    "args": {
+     "patient_id": "P-20417",
+     "since": "2026-10-01"
+    },
+    "result": {
+     "invoices": [
+      {
+       "id": "INV-88213",
+       "date": "2026-10-28",
+       "lines": [
+        {
+         "id": "L1",
+         "cpt": "99214",
+         "amount": 186,
+         "status": "paid"
+        },
+        {
+         "id": "L2",
+         "cpt": "99214",
+         "amount": 186,
+         "status": "paid"
+        }
+       ],
+       "payer_adj": 0
+      },
+      {
+       "id": "INV-87790",
+       "date": "2026-10-03",
+       "lines": [
+        {
+         "id": "L1",
+         "cpt": "85025",
+         "amount": 42,
+         "status": "paid"
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "support-agent:llm3",
+   "parentId": "support-agent",
+   "kind": "llm",
+   "name": "plan → get_invoices",
+   "start": 4047,
+   "end": 5398,
+   "status": "ok",
+   "model": "anthropic/claude-opus-5.5",
+   "usage": {
+    "input": 5834,
+    "output": 34,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are the billing support agent for a medical clinic.\nFollow billing policy BP-14. Verify the patient before any account change.\nNever reveal full payment details. Refunds above 500 USD need supervisor approval.\nBe concise and warm. Today is 2026-11-12."
+    },
+    {
+     "role": "user",
+     "content": "Hi, this is Hana Lin. I was charged twice for my visit on October 28 — $186 both times. Can you refund the duplicate?"
+    },
+    {
+     "role": "assistant",
+     "content": "billing_dispute"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm1:c0",
+       "name": "lookup_patient",
+       "args": {
+        "query": "Hana Lin"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "lookup_patient",
+     "content": "{\"patient_id\":\"P-20417\",\"name\":\"Hana Lin\",\"dob\":\"1991-03-08\",\"plan\":\"PPO\",\"balance\":0,\"email_ok\":true}"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm2:c0",
+       "name": "get_invoices",
+       "args": {
+        "patient_id": "P-20417",
+        "since": "2026-10-01"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "get_invoices",
+     "content": "{\"invoices\":[{\"id\":\"INV-88213\",\"date\":\"2026-10-28\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"},{\"id\":\"L2\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"}],\"payer_adj\":0},{\"id\":\"INV-87790\",\"date\":\"2026-10-03\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"85025\",\"amount\":42,\"status\":\"paid\"}]}]}"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "Let me confirm the line items before I check the policy.",
+    "toolCalls": [
+     {
+      "id": "support-agent:llm3:c0",
+      "name": "get_invoices",
+      "args": {
+       "patient_id": "P-20417",
+       "since": "2026-10-01"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "lookup_patient",
+     "description": "Find a patient record by name, date of birth or patient ID. Returns demographics, insurance plan, balance and contact preferences. Use this before any billing action so the right account is changed.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "query": {
+        "type": "string",
+        "description": "Name, DOB (YYYY-MM-DD) or patient ID"
+       }
+      },
+      "required": [
+       "query"
+      ]
+     }
+    },
+    {
+     "name": "get_invoices",
+     "description": "List invoices for a patient with line items, CPT codes, payer adjustments, payments and status. Results are sorted newest first and include up to 50 invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "since": {
+        "type": "string",
+        "description": "ISO date"
+       }
+      },
+      "required": [
+       "patient_id"
+      ]
+     }
+    },
+    {
+     "name": "check_refund_policy",
+     "description": "Ask the policy agent whether a refund is allowed under the clinic's billing policy BP-14, including duplicate charges, insurance timing and approval limits.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "case": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "case"
+      ]
+     }
+    },
+    {
+     "name": "issue_refund",
+     "description": "Issue a refund to the original payment method. Amounts above 500 USD need a supervisor approval id. Idempotent per invoice and line item.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "invoice_id": {
+        "type": "string"
+       },
+       "line_id": {
+        "type": "string"
+       },
+       "amount": {
+        "type": "number"
+       },
+       "reason": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "invoice_id",
+       "amount",
+       "reason"
+      ]
+     }
+    },
+    {
+     "name": "send_email",
+     "description": "Send an email to the patient using an approved template. Templates: refund_issued, refund_denied, need_more_info, payment_plan.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "template": {
+        "type": "string"
+       },
+       "variables": {
+        "type": "object"
+       }
+      },
+      "required": [
+       "patient_id",
+       "template"
+      ]
+     }
+    },
+    {
+     "name": "create_ticket",
+     "description": "Create an internal ticket for the billing team with priority, summary and links to the patient and invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       },
+       "priority": {
+        "type": "string",
+        "enum": [
+         "low",
+         "normal",
+         "high"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_payment_methods",
+     "description": "List saved payment methods with last four digits, brand and status. Never returns full card numbers.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "add_note",
+     "description": "Add a note to the patient's billing record. Notes are visible to staff only.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "note": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "escalate_to_human",
+     "description": "Hand the conversation to a human billing specialist with a summary of what was checked and what remains.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "support-agent:tool7",
+   "parentId": "support-agent",
+   "kind": "tool",
+   "name": "get_invoices",
+   "start": 5438,
+   "end": 6298,
+   "status": "ok",
+   "tool": {
+    "name": "get_invoices",
+    "args": {
+     "patient_id": "P-20417",
+     "since": "2026-10-01"
+    },
+    "result": {
+     "invoices": [
+      {
+       "id": "INV-88213",
+       "date": "2026-10-28",
+       "lines": [
+        {
+         "id": "L1",
+         "cpt": "99214",
+         "amount": 186,
+         "status": "paid"
+        },
+        {
+         "id": "L2",
+         "cpt": "99214",
+         "amount": 186,
+         "status": "paid"
+        }
+       ],
+       "payer_adj": 0
+      },
+      {
+       "id": "INV-87790",
+       "date": "2026-10-03",
+       "lines": [
+        {
+         "id": "L1",
+         "cpt": "85025",
+         "amount": 42,
+         "status": "paid"
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "support-agent:llm4",
+   "parentId": "support-agent",
+   "kind": "llm",
+   "name": "plan → get_invoices",
+   "start": 6328,
+   "end": 7462,
+   "status": "ok",
+   "model": "anthropic/claude-opus-5.5",
+   "usage": {
+    "input": 7718,
+    "output": 20,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are the billing support agent for a medical clinic.\nFollow billing policy BP-14. Verify the patient before any account change.\nNever reveal full payment details. Refunds above 500 USD need supervisor approval.\nBe concise and warm. Today is 2026-11-12."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm1:c0",
+       "name": "lookup_patient",
+       "args": {
+        "query": "Hana Lin"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "lookup_patient",
+     "content": "{\"patient_id\":\"P-20417\",\"name\":\"Hana Lin\",\"dob\":\"1991-03-08\",\"plan\":\"PPO\",\"balance\":0,\"email_ok\":true}"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm2:c0",
+       "name": "get_invoices",
+       "args": {
+        "patient_id": "P-20417",
+        "since": "2026-10-01"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "get_invoices",
+     "content": "{\"invoices\":[{\"id\":\"INV-88213\",\"date\":\"2026-10-28\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"},{\"id\":\"L2\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"}],\"payer_adj\":0},{\"id\":\"INV-87790\",\"date\":\"2026-10-03\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"85025\",\"amount\":42,\"status\":\"paid\"}]}]}"
+    },
+    {
+     "role": "assistant",
+     "content": "Let me confirm the line items before I check the policy.",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm3:c0",
+       "name": "get_invoices",
+       "args": {
+        "patient_id": "P-20417",
+        "since": "2026-10-01"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "get_invoices",
+     "content": "{\"invoices\":[{\"id\":\"INV-88213\",\"date\":\"2026-10-28\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"},{\"id\":\"L2\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"}],\"payer_adj\":0},{\"id\":\"INV-87790\",\"date\":\"2026-10-03\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"85025\",\"amount\":42,\"status\":\"paid\"}]}]}"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "support-agent:llm4:c0",
+      "name": "get_invoices",
+      "args": {
+       "patient_id": "P-20417",
+       "since": "2026-10-01"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "lookup_patient",
+     "description": "Find a patient record by name, date of birth or patient ID. Returns demographics, insurance plan, balance and contact preferences. Use this before any billing action so the right account is changed.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "query": {
+        "type": "string",
+        "description": "Name, DOB (YYYY-MM-DD) or patient ID"
+       }
+      },
+      "required": [
+       "query"
+      ]
+     }
+    },
+    {
+     "name": "get_invoices",
+     "description": "List invoices for a patient with line items, CPT codes, payer adjustments, payments and status. Results are sorted newest first and include up to 50 invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "since": {
+        "type": "string",
+        "description": "ISO date"
+       }
+      },
+      "required": [
+       "patient_id"
+      ]
+     }
+    },
+    {
+     "name": "check_refund_policy",
+     "description": "Ask the policy agent whether a refund is allowed under the clinic's billing policy BP-14, including duplicate charges, insurance timing and approval limits.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "case": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "case"
+      ]
+     }
+    },
+    {
+     "name": "issue_refund",
+     "description": "Issue a refund to the original payment method. Amounts above 500 USD need a supervisor approval id. Idempotent per invoice and line item.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "invoice_id": {
+        "type": "string"
+       },
+       "line_id": {
+        "type": "string"
+       },
+       "amount": {
+        "type": "number"
+       },
+       "reason": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "invoice_id",
+       "amount",
+       "reason"
+      ]
+     }
+    },
+    {
+     "name": "send_email",
+     "description": "Send an email to the patient using an approved template. Templates: refund_issued, refund_denied, need_more_info, payment_plan.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "template": {
+        "type": "string"
+       },
+       "variables": {
+        "type": "object"
+       }
+      },
+      "required": [
+       "patient_id",
+       "template"
+      ]
+     }
+    },
+    {
+     "name": "create_ticket",
+     "description": "Create an internal ticket for the billing team with priority, summary and links to the patient and invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       },
+       "priority": {
+        "type": "string",
+        "enum": [
+         "low",
+         "normal",
+         "high"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_payment_methods",
+     "description": "List saved payment methods with last four digits, brand and status. Never returns full card numbers.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "add_note",
+     "description": "Add a note to the patient's billing record. Notes are visible to staff only.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "note": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "escalate_to_human",
+     "description": "Hand the conversation to a human billing specialist with a summary of what was checked and what remains.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "support-agent:tool9",
+   "parentId": "support-agent",
+   "kind": "tool",
+   "name": "get_invoices",
+   "start": 7502,
+   "end": 8412,
+   "status": "ok",
+   "tool": {
+    "name": "get_invoices",
+    "args": {
+     "patient_id": "P-20417",
+     "since": "2026-10-01"
+    },
+    "result": {
+     "invoices": [
+      {
+       "id": "INV-88213",
+       "date": "2026-10-28",
+       "lines": [
+        {
+         "id": "L1",
+         "cpt": "99214",
+         "amount": 186,
+         "status": "paid"
+        },
+        {
+         "id": "L2",
+         "cpt": "99214",
+         "amount": 186,
+         "status": "paid"
+        }
+       ],
+       "payer_adj": 0
+      },
+      {
+       "id": "INV-87790",
+       "date": "2026-10-03",
+       "lines": [
+        {
+         "id": "L1",
+         "cpt": "85025",
+         "amount": 42,
+         "status": "paid"
+        }
+       ]
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "support-agent:llm5",
+   "parentId": "support-agent",
+   "kind": "llm",
+   "name": "plan → check_refund_policy",
+   "start": 8442,
+   "end": 10309,
+   "status": "ok",
+   "model": "anthropic/claude-opus-5.5",
+   "usage": {
+    "input": 9588,
+    "output": 56,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are the billing support agent for a medical clinic.\nFollow billing policy BP-14. Verify the patient before any account change.\nNever reveal full payment details. Refunds above 500 USD need supervisor approval.\nBe concise and warm. Today is 2026-11-12."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm2:c0",
+       "name": "get_invoices",
+       "args": {
+        "patient_id": "P-20417",
+        "since": "2026-10-01"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "get_invoices",
+     "content": "{\"invoices\":[{\"id\":\"INV-88213\",\"date\":\"2026-10-28\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"},{\"id\":\"L2\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"}],\"payer_adj\":0},{\"id\":\"INV-87790\",\"date\":\"2026-10-03\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"85025\",\"amount\":42,\"status\":\"paid\"}]}]}"
+    },
+    {
+     "role": "assistant",
+     "content": "Let me confirm the line items before I check the policy.",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm3:c0",
+       "name": "get_invoices",
+       "args": {
+        "patient_id": "P-20417",
+        "since": "2026-10-01"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "get_invoices",
+     "content": "{\"invoices\":[{\"id\":\"INV-88213\",\"date\":\"2026-10-28\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"},{\"id\":\"L2\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"}],\"payer_adj\":0},{\"id\":\"INV-87790\",\"date\":\"2026-10-03\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"85025\",\"amount\":42,\"status\":\"paid\"}]}]}"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm4:c0",
+       "name": "get_invoices",
+       "args": {
+        "patient_id": "P-20417",
+        "since": "2026-10-01"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "get_invoices",
+     "content": "{\"invoices\":[{\"id\":\"INV-88213\",\"date\":\"2026-10-28\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"},{\"id\":\"L2\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"}],\"payer_adj\":0},{\"id\":\"INV-87790\",\"date\":\"2026-10-03\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"85025\",\"amount\":42,\"status\":\"paid\"}]}]}"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "INV-88213 has the same CPT 99214 charged twice on one visit. Checking policy.",
+    "toolCalls": [
+     {
+      "id": "support-agent:llm5:c0",
+      "name": "check_refund_policy",
+      "args": {
+       "case": "Duplicate CPT 99214 on INV-88213, two lines of $186, same date of service, both paid by card."
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "lookup_patient",
+     "description": "Find a patient record by name, date of birth or patient ID. Returns demographics, insurance plan, balance and contact preferences. Use this before any billing action so the right account is changed.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "query": {
+        "type": "string",
+        "description": "Name, DOB (YYYY-MM-DD) or patient ID"
+       }
+      },
+      "required": [
+       "query"
+      ]
+     }
+    },
+    {
+     "name": "get_invoices",
+     "description": "List invoices for a patient with line items, CPT codes, payer adjustments, payments and status. Results are sorted newest first and include up to 50 invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "since": {
+        "type": "string",
+        "description": "ISO date"
+       }
+      },
+      "required": [
+       "patient_id"
+      ]
+     }
+    },
+    {
+     "name": "check_refund_policy",
+     "description": "Ask the policy agent whether a refund is allowed under the clinic's billing policy BP-14, including duplicate charges, insurance timing and approval limits.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "case": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "case"
+      ]
+     }
+    },
+    {
+     "name": "issue_refund",
+     "description": "Issue a refund to the original payment method. Amounts above 500 USD need a supervisor approval id. Idempotent per invoice and line item.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "invoice_id": {
+        "type": "string"
+       },
+       "line_id": {
+        "type": "string"
+       },
+       "amount": {
+        "type": "number"
+       },
+       "reason": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "invoice_id",
+       "amount",
+       "reason"
+      ]
+     }
+    },
+    {
+     "name": "send_email",
+     "description": "Send an email to the patient using an approved template. Templates: refund_issued, refund_denied, need_more_info, payment_plan.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "template": {
+        "type": "string"
+       },
+       "variables": {
+        "type": "object"
+       }
+      },
+      "required": [
+       "patient_id",
+       "template"
+      ]
+     }
+    },
+    {
+     "name": "create_ticket",
+     "description": "Create an internal ticket for the billing team with priority, summary and links to the patient and invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       },
+       "priority": {
+        "type": "string",
+        "enum": [
+         "low",
+         "normal",
+         "high"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_payment_methods",
+     "description": "List saved payment methods with last four digits, brand and status. Never returns full card numbers.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "add_note",
+     "description": "Add a note to the patient's billing record. Notes are visible to staff only.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "note": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "escalate_to_human",
+     "description": "Hand the conversation to a human billing specialist with a summary of what was checked and what remains.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "support-agent:tool11",
+   "parentId": "support-agent",
+   "kind": "tool",
+   "name": "check_refund_policy",
+   "start": 10349,
+   "end": 12983,
+   "status": "ok",
+   "tool": {
+    "name": "check_refund_policy",
+    "args": {
+     "case": "Duplicate CPT 99214 on INV-88213"
+    },
+    "result": "ALLOW — BP-14 §4.2, duplicate line L2, $186, no approval needed."
+   }
+  },
+  {
+   "id": "policy-checker",
+   "parentId": "support-agent",
+   "kind": "agent",
+   "name": "policy-checker",
+   "start": 10349,
+   "end": 12983,
+   "status": "ok"
+  },
+  {
+   "id": "policy-checker:llm0",
+   "parentId": "policy-checker",
+   "kind": "llm",
+   "name": "read_policy",
+   "start": 10349,
+   "end": 11731,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 5225,
+    "output": 38,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You decide whether a refund follows the clinic's billing policy BP-14.\nAnswer ALLOW or DENY with one short reason and any approval needed."
+    },
+    {
+     "role": "user",
+     "content": "Duplicate CPT 99214 on INV-88213, two lines of $186, same date of service, both paid by card."
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "Section 4.2 covers duplicate professional charges on one date of service: refund the duplicate line to the original method, no approval below 500 USD."
+   },
+   "tools": []
+  },
+  {
+   "id": "policy-checker:llm1",
+   "parentId": "policy-checker",
+   "kind": "llm",
+   "name": "decide",
+   "start": 11771,
+   "end": 12943,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 5263,
+    "output": 24,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You decide whether a refund follows the clinic's billing policy BP-14.\nAnswer ALLOW or DENY with one short reason and any approval needed."
+    },
+    {
+     "role": "user",
+     "content": "Duplicate CPT 99214 on INV-88213, two lines of $186, same date of service, both paid by card."
+    },
+    {
+     "role": "assistant",
+     "content": "Section 4.2 covers duplicate professional charges on one date of service: refund the duplicate line to the original method, no approval below 500 USD."
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "ALLOW — BP-14 §4.2, duplicate line L2, $186, no approval needed."
+   },
+   "tools": []
+  },
+  {
+   "id": "support-agent:llm6",
+   "parentId": "support-agent",
+   "kind": "llm",
+   "name": "plan → issue_refund",
+   "start": 13043,
+   "end": 14264,
+   "status": "ok",
+   "model": "anthropic/claude-opus-5.5",
+   "usage": {
+    "input": 9672,
+    "output": 32,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are the billing support agent for a medical clinic.\nFollow billing policy BP-14. Verify the patient before any account change.\nNever reveal full payment details. Refunds above 500 USD need supervisor approval.\nBe concise and warm. Today is 2026-11-12."
+    },
+    {
+     "role": "assistant",
+     "content": "Let me confirm the line items before I check the policy.",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm3:c0",
+       "name": "get_invoices",
+       "args": {
+        "patient_id": "P-20417",
+        "since": "2026-10-01"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "get_invoices",
+     "content": "{\"invoices\":[{\"id\":\"INV-88213\",\"date\":\"2026-10-28\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"},{\"id\":\"L2\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"}],\"payer_adj\":0},{\"id\":\"INV-87790\",\"date\":\"2026-10-03\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"85025\",\"amount\":42,\"status\":\"paid\"}]}]}"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm4:c0",
+       "name": "get_invoices",
+       "args": {
+        "patient_id": "P-20417",
+        "since": "2026-10-01"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "get_invoices",
+     "content": "{\"invoices\":[{\"id\":\"INV-88213\",\"date\":\"2026-10-28\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"},{\"id\":\"L2\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"}],\"payer_adj\":0},{\"id\":\"INV-87790\",\"date\":\"2026-10-03\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"85025\",\"amount\":42,\"status\":\"paid\"}]}]}"
+    },
+    {
+     "role": "assistant",
+     "content": "INV-88213 has the same CPT 99214 charged twice on one visit. Checking policy.",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm5:c0",
+       "name": "check_refund_policy",
+       "args": {
+        "case": "Duplicate CPT 99214 on INV-88213, two lines of $186, same date of service, both paid by card."
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "check_refund_policy",
+     "content": "ALLOW — BP-14 §4.2, duplicate line L2, $186, no approval needed."
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "support-agent:llm6:c0",
+      "name": "issue_refund",
+      "args": {
+       "invoice_id": "INV-88213",
+       "line_id": "L2",
+       "amount": 186,
+       "reason": "Duplicate charge, BP-14 §4.2"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "lookup_patient",
+     "description": "Find a patient record by name, date of birth or patient ID. Returns demographics, insurance plan, balance and contact preferences. Use this before any billing action so the right account is changed.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "query": {
+        "type": "string",
+        "description": "Name, DOB (YYYY-MM-DD) or patient ID"
+       }
+      },
+      "required": [
+       "query"
+      ]
+     }
+    },
+    {
+     "name": "get_invoices",
+     "description": "List invoices for a patient with line items, CPT codes, payer adjustments, payments and status. Results are sorted newest first and include up to 50 invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "since": {
+        "type": "string",
+        "description": "ISO date"
+       }
+      },
+      "required": [
+       "patient_id"
+      ]
+     }
+    },
+    {
+     "name": "check_refund_policy",
+     "description": "Ask the policy agent whether a refund is allowed under the clinic's billing policy BP-14, including duplicate charges, insurance timing and approval limits.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "case": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "case"
+      ]
+     }
+    },
+    {
+     "name": "issue_refund",
+     "description": "Issue a refund to the original payment method. Amounts above 500 USD need a supervisor approval id. Idempotent per invoice and line item.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "invoice_id": {
+        "type": "string"
+       },
+       "line_id": {
+        "type": "string"
+       },
+       "amount": {
+        "type": "number"
+       },
+       "reason": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "invoice_id",
+       "amount",
+       "reason"
+      ]
+     }
+    },
+    {
+     "name": "send_email",
+     "description": "Send an email to the patient using an approved template. Templates: refund_issued, refund_denied, need_more_info, payment_plan.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "template": {
+        "type": "string"
+       },
+       "variables": {
+        "type": "object"
+       }
+      },
+      "required": [
+       "patient_id",
+       "template"
+      ]
+     }
+    },
+    {
+     "name": "create_ticket",
+     "description": "Create an internal ticket for the billing team with priority, summary and links to the patient and invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       },
+       "priority": {
+        "type": "string",
+        "enum": [
+         "low",
+         "normal",
+         "high"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_payment_methods",
+     "description": "List saved payment methods with last four digits, brand and status. Never returns full card numbers.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "add_note",
+     "description": "Add a note to the patient's billing record. Notes are visible to staff only.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "note": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "escalate_to_human",
+     "description": "Hand the conversation to a human billing specialist with a summary of what was checked and what remains.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "support-agent:tool13",
+   "parentId": "support-agent",
+   "kind": "tool",
+   "name": "issue_refund",
+   "start": 14304,
+   "end": 44304,
+   "status": "error",
+   "error": "502 Bad Gateway from payments-gateway (timeout after 30 s)",
+   "tool": {
+    "name": "issue_refund",
+    "args": {
+     "invoice_id": "INV-88213",
+     "line_id": "L2",
+     "amount": 186,
+     "reason": "Duplicate charge, BP-14 §4.2"
+    },
+    "result": null
+   }
+  },
+  {
+   "id": "support-agent:llm7",
+   "parentId": "support-agent",
+   "kind": "llm",
+   "name": "plan → issue_refund",
+   "start": 44334,
+   "end": 45915,
+   "status": "ok",
+   "model": "anthropic/claude-opus-5.5",
+   "usage": {
+    "input": 9744,
+    "output": 43,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are the billing support agent for a medical clinic.\nFollow billing policy BP-14. Verify the patient before any account change.\nNever reveal full payment details. Refunds above 500 USD need supervisor approval.\nBe concise and warm. Today is 2026-11-12."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm4:c0",
+       "name": "get_invoices",
+       "args": {
+        "patient_id": "P-20417",
+        "since": "2026-10-01"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "get_invoices",
+     "content": "{\"invoices\":[{\"id\":\"INV-88213\",\"date\":\"2026-10-28\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"},{\"id\":\"L2\",\"cpt\":\"99214\",\"amount\":186,\"status\":\"paid\"}],\"payer_adj\":0},{\"id\":\"INV-87790\",\"date\":\"2026-10-03\",\"lines\":[{\"id\":\"L1\",\"cpt\":\"85025\",\"amount\":42,\"status\":\"paid\"}]}]}"
+    },
+    {
+     "role": "assistant",
+     "content": "INV-88213 has the same CPT 99214 charged twice on one visit. Checking policy.",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm5:c0",
+       "name": "check_refund_policy",
+       "args": {
+        "case": "Duplicate CPT 99214 on INV-88213, two lines of $186, same date of service, both paid by card."
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "check_refund_policy",
+     "content": "ALLOW — BP-14 §4.2, duplicate line L2, $186, no approval needed."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm6:c0",
+       "name": "issue_refund",
+       "args": {
+        "invoice_id": "INV-88213",
+        "line_id": "L2",
+        "amount": 186,
+        "reason": "Duplicate charge, BP-14 §4.2"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "issue_refund",
+     "content": "Error: 502 Bad Gateway from payments-gateway (timeout after 30 s)"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "The payment service timed out. Trying again.",
+    "toolCalls": [
+     {
+      "id": "support-agent:llm7:c0",
+      "name": "issue_refund",
+      "args": {
+       "invoice_id": "INV-88213",
+       "line_id": "L2",
+       "amount": 186,
+       "reason": "Duplicate charge, BP-14 §4.2"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "lookup_patient",
+     "description": "Find a patient record by name, date of birth or patient ID. Returns demographics, insurance plan, balance and contact preferences. Use this before any billing action so the right account is changed.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "query": {
+        "type": "string",
+        "description": "Name, DOB (YYYY-MM-DD) or patient ID"
+       }
+      },
+      "required": [
+       "query"
+      ]
+     }
+    },
+    {
+     "name": "get_invoices",
+     "description": "List invoices for a patient with line items, CPT codes, payer adjustments, payments and status. Results are sorted newest first and include up to 50 invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "since": {
+        "type": "string",
+        "description": "ISO date"
+       }
+      },
+      "required": [
+       "patient_id"
+      ]
+     }
+    },
+    {
+     "name": "check_refund_policy",
+     "description": "Ask the policy agent whether a refund is allowed under the clinic's billing policy BP-14, including duplicate charges, insurance timing and approval limits.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "case": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "case"
+      ]
+     }
+    },
+    {
+     "name": "issue_refund",
+     "description": "Issue a refund to the original payment method. Amounts above 500 USD need a supervisor approval id. Idempotent per invoice and line item.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "invoice_id": {
+        "type": "string"
+       },
+       "line_id": {
+        "type": "string"
+       },
+       "amount": {
+        "type": "number"
+       },
+       "reason": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "invoice_id",
+       "amount",
+       "reason"
+      ]
+     }
+    },
+    {
+     "name": "send_email",
+     "description": "Send an email to the patient using an approved template. Templates: refund_issued, refund_denied, need_more_info, payment_plan.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "template": {
+        "type": "string"
+       },
+       "variables": {
+        "type": "object"
+       }
+      },
+      "required": [
+       "patient_id",
+       "template"
+      ]
+     }
+    },
+    {
+     "name": "create_ticket",
+     "description": "Create an internal ticket for the billing team with priority, summary and links to the patient and invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       },
+       "priority": {
+        "type": "string",
+        "enum": [
+         "low",
+         "normal",
+         "high"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_payment_methods",
+     "description": "List saved payment methods with last four digits, brand and status. Never returns full card numbers.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "add_note",
+     "description": "Add a note to the patient's billing record. Notes are visible to staff only.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "note": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "escalate_to_human",
+     "description": "Hand the conversation to a human billing specialist with a summary of what was checked and what remains.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "support-agent:tool15",
+   "parentId": "support-agent",
+   "kind": "tool",
+   "name": "issue_refund",
+   "start": 45955,
+   "end": 48055,
+   "status": "ok",
+   "tool": {
+    "name": "issue_refund",
+    "args": {
+     "invoice_id": "INV-88213",
+     "line_id": "L2",
+     "amount": 186,
+     "reason": "Duplicate charge, BP-14 §4.2"
+    },
+    "result": {
+     "refund_id": "RF-55190",
+     "status": "submitted",
+     "eta_days": 5
+    }
+   }
+  },
+  {
+   "id": "support-agent:llm8",
+   "parentId": "support-agent",
+   "kind": "llm",
+   "name": "plan → send_email, add_note",
+   "start": 48085,
+   "end": 50149,
+   "status": "ok",
+   "model": "anthropic/claude-opus-5.5",
+   "usage": {
+    "input": 9814,
+    "output": 64,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are the billing support agent for a medical clinic.\nFollow billing policy BP-14. Verify the patient before any account change.\nNever reveal full payment details. Refunds above 500 USD need supervisor approval.\nBe concise and warm. Today is 2026-11-12."
+    },
+    {
+     "role": "assistant",
+     "content": "INV-88213 has the same CPT 99214 charged twice on one visit. Checking policy.",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm5:c0",
+       "name": "check_refund_policy",
+       "args": {
+        "case": "Duplicate CPT 99214 on INV-88213, two lines of $186, same date of service, both paid by card."
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "check_refund_policy",
+     "content": "ALLOW — BP-14 §4.2, duplicate line L2, $186, no approval needed."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm6:c0",
+       "name": "issue_refund",
+       "args": {
+        "invoice_id": "INV-88213",
+        "line_id": "L2",
+        "amount": 186,
+        "reason": "Duplicate charge, BP-14 §4.2"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "issue_refund",
+     "content": "Error: 502 Bad Gateway from payments-gateway (timeout after 30 s)"
+    },
+    {
+     "role": "assistant",
+     "content": "The payment service timed out. Trying again.",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm7:c0",
+       "name": "issue_refund",
+       "args": {
+        "invoice_id": "INV-88213",
+        "line_id": "L2",
+        "amount": 186,
+        "reason": "Duplicate charge, BP-14 §4.2"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "issue_refund",
+     "content": "{\"refund_id\":\"RF-55190\",\"status\":\"submitted\",\"eta_days\":5}"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "support-agent:llm8:c0",
+      "name": "send_email",
+      "args": {
+       "patient_id": "P-20417",
+       "template": "refund_issued",
+       "variables": {
+        "amount": "$186.00",
+        "eta": "5 business days"
+       }
+      }
+     },
+     {
+      "id": "support-agent:llm8:c1",
+      "name": "add_note",
+      "args": {
+       "patient_id": "P-20417",
+       "note": "Refunded duplicate L2 on INV-88213 ($186), RF-55190."
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "lookup_patient",
+     "description": "Find a patient record by name, date of birth or patient ID. Returns demographics, insurance plan, balance and contact preferences. Use this before any billing action so the right account is changed.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "query": {
+        "type": "string",
+        "description": "Name, DOB (YYYY-MM-DD) or patient ID"
+       }
+      },
+      "required": [
+       "query"
+      ]
+     }
+    },
+    {
+     "name": "get_invoices",
+     "description": "List invoices for a patient with line items, CPT codes, payer adjustments, payments and status. Results are sorted newest first and include up to 50 invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "since": {
+        "type": "string",
+        "description": "ISO date"
+       }
+      },
+      "required": [
+       "patient_id"
+      ]
+     }
+    },
+    {
+     "name": "check_refund_policy",
+     "description": "Ask the policy agent whether a refund is allowed under the clinic's billing policy BP-14, including duplicate charges, insurance timing and approval limits.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "case": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "case"
+      ]
+     }
+    },
+    {
+     "name": "issue_refund",
+     "description": "Issue a refund to the original payment method. Amounts above 500 USD need a supervisor approval id. Idempotent per invoice and line item.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "invoice_id": {
+        "type": "string"
+       },
+       "line_id": {
+        "type": "string"
+       },
+       "amount": {
+        "type": "number"
+       },
+       "reason": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "invoice_id",
+       "amount",
+       "reason"
+      ]
+     }
+    },
+    {
+     "name": "send_email",
+     "description": "Send an email to the patient using an approved template. Templates: refund_issued, refund_denied, need_more_info, payment_plan.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "template": {
+        "type": "string"
+       },
+       "variables": {
+        "type": "object"
+       }
+      },
+      "required": [
+       "patient_id",
+       "template"
+      ]
+     }
+    },
+    {
+     "name": "create_ticket",
+     "description": "Create an internal ticket for the billing team with priority, summary and links to the patient and invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       },
+       "priority": {
+        "type": "string",
+        "enum": [
+         "low",
+         "normal",
+         "high"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_payment_methods",
+     "description": "List saved payment methods with last four digits, brand and status. Never returns full card numbers.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "add_note",
+     "description": "Add a note to the patient's billing record. Notes are visible to staff only.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "note": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "escalate_to_human",
+     "description": "Hand the conversation to a human billing specialist with a summary of what was checked and what remains.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "support-agent:tool17",
+   "parentId": "support-agent",
+   "kind": "tool",
+   "name": "send_email",
+   "start": 50189,
+   "end": 50829,
+   "status": "ok",
+   "tool": {
+    "name": "send_email",
+    "args": {
+     "patient_id": "P-20417",
+     "template": "refund_issued"
+    },
+    "result": {
+     "sent": true
+    }
+   }
+  },
+  {
+   "id": "support-agent:tool18",
+   "parentId": "support-agent",
+   "kind": "tool",
+   "name": "add_note",
+   "start": 50224,
+   "end": 50434,
+   "status": "ok",
+   "tool": {
+    "name": "add_note",
+    "args": {
+     "patient_id": "P-20417"
+    },
+    "result": {
+     "ok": true
+    }
+   }
+  },
+  {
+   "id": "support-agent:llm9",
+   "parentId": "support-agent",
+   "kind": "llm",
+   "name": "answer",
+   "start": 50859,
+   "end": 53037,
+   "status": "ok",
+   "model": "anthropic/claude-opus-5.5",
+   "usage": {
+    "input": 9909,
+    "output": 71,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are the billing support agent for a medical clinic.\nFollow billing policy BP-14. Verify the patient before any account change.\nNever reveal full payment details. Refunds above 500 USD need supervisor approval.\nBe concise and warm. Today is 2026-11-12."
+    },
+    {
+     "role": "tool",
+     "name": "issue_refund",
+     "content": "Error: 502 Bad Gateway from payments-gateway (timeout after 30 s)"
+    },
+    {
+     "role": "assistant",
+     "content": "The payment service timed out. Trying again.",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm7:c0",
+       "name": "issue_refund",
+       "args": {
+        "invoice_id": "INV-88213",
+        "line_id": "L2",
+        "amount": 186,
+        "reason": "Duplicate charge, BP-14 §4.2"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "issue_refund",
+     "content": "{\"refund_id\":\"RF-55190\",\"status\":\"submitted\",\"eta_days\":5}"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "support-agent:llm8:c0",
+       "name": "send_email",
+       "args": {
+        "patient_id": "P-20417",
+        "template": "refund_issued",
+        "variables": {
+         "amount": "$186.00",
+         "eta": "5 business days"
+        }
+       }
+      },
+      {
+       "id": "support-agent:llm8:c1",
+       "name": "add_note",
+       "args": {
+        "patient_id": "P-20417",
+        "note": "Refunded duplicate L2 on INV-88213 ($186), RF-55190."
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "send_email",
+     "content": "{\"sent\":true}"
+    },
+    {
+     "role": "tool",
+     "name": "add_note",
+     "content": "{\"ok\":true}"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "Thanks for your patience, Hana. You were charged twice for the same visit on October 28. I refunded the duplicate $186.00 to your card on file (refund RF-55190). It should appear within 5 business days, and I sent a confirmation to your email. Is there anything else I can help with?"
+   },
+   "tools": [
+    {
+     "name": "lookup_patient",
+     "description": "Find a patient record by name, date of birth or patient ID. Returns demographics, insurance plan, balance and contact preferences. Use this before any billing action so the right account is changed.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "query": {
+        "type": "string",
+        "description": "Name, DOB (YYYY-MM-DD) or patient ID"
+       }
+      },
+      "required": [
+       "query"
+      ]
+     }
+    },
+    {
+     "name": "get_invoices",
+     "description": "List invoices for a patient with line items, CPT codes, payer adjustments, payments and status. Results are sorted newest first and include up to 50 invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "since": {
+        "type": "string",
+        "description": "ISO date"
+       }
+      },
+      "required": [
+       "patient_id"
+      ]
+     }
+    },
+    {
+     "name": "check_refund_policy",
+     "description": "Ask the policy agent whether a refund is allowed under the clinic's billing policy BP-14, including duplicate charges, insurance timing and approval limits.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "case": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "case"
+      ]
+     }
+    },
+    {
+     "name": "issue_refund",
+     "description": "Issue a refund to the original payment method. Amounts above 500 USD need a supervisor approval id. Idempotent per invoice and line item.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "invoice_id": {
+        "type": "string"
+       },
+       "line_id": {
+        "type": "string"
+       },
+       "amount": {
+        "type": "number"
+       },
+       "reason": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "invoice_id",
+       "amount",
+       "reason"
+      ]
+     }
+    },
+    {
+     "name": "send_email",
+     "description": "Send an email to the patient using an approved template. Templates: refund_issued, refund_denied, need_more_info, payment_plan.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "template": {
+        "type": "string"
+       },
+       "variables": {
+        "type": "object"
+       }
+      },
+      "required": [
+       "patient_id",
+       "template"
+      ]
+     }
+    },
+    {
+     "name": "create_ticket",
+     "description": "Create an internal ticket for the billing team with priority, summary and links to the patient and invoices.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       },
+       "priority": {
+        "type": "string",
+        "enum": [
+         "low",
+         "normal",
+         "high"
+        ]
+       }
+      }
+     }
+    },
+    {
+     "name": "get_payment_methods",
+     "description": "List saved payment methods with last four digits, brand and status. Never returns full card numbers.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "add_note",
+     "description": "Add a note to the patient's billing record. Notes are visible to staff only.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "patient_id": {
+        "type": "string"
+       },
+       "note": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "escalate_to_human",
+     "description": "Hand the conversation to a human billing specialist with a summary of what was checked and what remains.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "summary": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  }
+ ]
+}

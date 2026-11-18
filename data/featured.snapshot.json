@@ -1,0 +1,54 @@
+{
+  "asOf": "2026-11-18T09:42:39.227Z",
+  "note": "Usage-ranked: OpenRouter, last 4 weeks.",
+  "models": [
+    {
+      "id": "deepseek/deepseek-v4.1-flash",
+      "tokens": 239484930533469
+    },
+    {
+      "id": "z-ai/glm-5.3-flash",
+      "tokens": 44235272293332
+    },
+    {
+      "id": "tencent/hy4-flash",
+      "tokens": 37649159568088
+    },
+    {
+      "id": "tencent/hy4",
+      "tokens": 33981071773620
+    },
+    {
+      "id": "openai/gpt-6-luna",
+      "tokens": 27878064409208
+    },
+    {
+      "id": "anthropic/claude-opus-5.5",
+      "tokens": 23519549317879
+    },
+    {
+      "id": "stepfun/step-5-preview",
+      "tokens": 22537256525380
+    },
+    {
+      "id": "deepseek/deepseek-v4-flash",
+      "tokens": 19233742304594
+    },
+    {
+      "id": "minimax/minimax-m3.1-flash",
+      "tokens": 15951626439692
+    },
+    {
+      "id": "z-ai/glm-5.3",
+      "tokens": 12711931256768
+    },
+    {
+      "id": "openai/gpt-6.1-sol",
+      "tokens": 12576976436602
+    },
+    {
+      "id": "moonshotai/kimi-k3.1-pro",
+      "tokens": 11565635835893
+    }
+  ]
+}

@@ -1,36 +1,116 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Blackbox
 
-## Getting Started
+A flight recorder for AI agents.
 
-First, run the development server:
+Drop in the trace of one agent run. Blackbox replays the run step by step, shows what each LLM call cost, finds the waste, and prices the whole run again on any OpenRouter model.
+
+![The billing agent demo in Blackbox. The run is priced again on claude-sonnet-5.5, and the hatched band shows the money saved.](docs/replay.png)
+
+Everything runs in your browser. Blackbox has no account and no upload. The server only refreshes the OpenRouter price list once an hour.
+
+## What it shows
+
+- **The replay.** A spend line climbs as the run plays. Under it, a bar for each LLM call shows the input that the call sent, split into full-price tokens and cached tokens. A timeline lists every step: agents, LLM calls, tool calls and retrievals.
+- **Compare models.** Pick a model, and Blackbox prices every LLM call on it. The spend line moves to the new cost, and the band between the two lines is the money you save. You can also set a different model on one step only. Any OpenRouter model id works, including one that Blackbox has no price for.
+- **Waste.** Five checks look for money that a cheaper setup can save:
+  - earlier conversation sent again at full price, where prompt caching would bill it at the cache price;
+  - failed steps, and the LLM calls that asked for them;
+  - the same tool called 3 or more times with the same arguments;
+  - tool definitions that are more than 8% of the input on every call;
+  - a model that costs $1.50 or more for each 1M input tokens, on a call that returns 40 tokens or fewer and calls no tools.
+
+  Each finding names its steps and an estimated saving. The findings can overlap, so Blackbox combines them in sequence and never adds them up directly.
+- **Step details.** The input, output, cache and cost lines of one step, with its prompt and its result.
+
+## Honesty rules
+
+- A re-priced cost keeps the recorded token counts. Another model can use more or fewer tokens, and Blackbox does not guess.
+- Blackbox does not measure answer quality. A cheaper model can give worse answers.
+- If a model has no price, the step keeps its recorded cost. The UI says so.
+
+## Trace formats
+
+Blackbox reads three formats. It finds the format from the file content, not the file name.
+
+| Format | What it reads |
+| --- | --- |
+| OpenTelemetry JSON | Spans with GenAI (`gen_ai.*`) or OpenInference (`llm.*`) attributes |
+| Chat lines | JSON lines of OpenAI or OpenRouter chat completion requests and responses |
+| Blackbox JSON | The native format. See `lib/types.ts` and `data/traces/` |
+
+The limit is 50 MB for each file. Times can be in seconds or milliseconds. Blackbox moves every trace so that it starts at zero.
+
+## Keyboard
+
+Press `?` in a replay to see every shortcut. Press `⌘K` to open the command menu. The most used keys:
+
+| Key | Action |
+| --- | --- |
+| `Space` | Play or pause |
+| `←` `→` | Previous or next LLM call |
+| `J` `K` | Next or previous step |
+| `1` `2` `3` | Compare models, Waste, Step |
+| `/` | Search models |
+| `⌘O` | Open a trace |
+
+## Run it on your computer
+
+You need [Bun](https://bun.sh) 1.4 or later.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
+bun install
+```
+
+```bash
 bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Other commands:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+bun run build
+```
 
-## Learn More
+```bash
+bun test
+```
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+bun run lint
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The Compare list features the most used models on OpenRouter. The server reads them with an OpenRouter API key. Put the key in `.env.local` as `OPENROUTER_API_KEY`. To refresh the saved copy that the site uses without a key, run this command:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+bun scripts/featured.ts
+```
 
-## Deploy on Vercel
+To write the demo traces again, run this command. It writes the files in `data/traces/`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+bun scripts/demos.ts
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## How the code is set up
+
+| Path | What it holds |
+| --- | --- |
+| `app/` | The landing page, the demo pages (`/demo/[slug]`) and the page for a trace you open (`/trace`) |
+| `components/Workbench.tsx` | The replay: state, playback and the keyboard map |
+| `components/Recorder.tsx` | The spend line, the input bars and the step timeline |
+| `components/Panel.tsx` | The side panel: Compare models, Waste and Step |
+| `components/Commands.tsx` | The command menu, the shortcut sheet and tooltips |
+| `components/Popover.tsx` | The select and the model picker |
+| `lib/adapters.ts` | The trace parsers and the trace clean-up |
+| `lib/cost.ts` | Prices and cost math |
+| `lib/findings.ts` | The five waste checks |
+| `lib/models.ts` | The OpenRouter model list, cached for one hour, with a saved copy as a fallback |
+| `lib/featured.ts` | The models the Compare list shows first, from OpenRouter usage rankings, with a saved copy as a fallback |
+
+Built with Next.js 16, React 19, Tailwind CSS 4 and Motion.
+
+## Author
+
+Built by Srijit Ghosh.

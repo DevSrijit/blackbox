@@ -1,0 +1,3604 @@
+{
+ "blackbox": 1,
+ "id": "coding-agent",
+ "title": "Coding agent",
+ "description": "A coding agent fixes a flaky test. Prompt caching stops working halfway: a timestamp at the top of the system prompt changes, so every later call pays full price.",
+ "source": "demo",
+ "startedAt": "2026-11-16T21:12:40.000Z",
+ "spans": [
+  {
+   "id": "coding-agent",
+   "parentId": null,
+   "kind": "agent",
+   "name": "coding-agent",
+   "start": 0,
+   "end": 64600,
+   "status": "ok"
+  },
+  {
+   "id": "coding-agent:llm0",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → list_dir",
+   "start": 0,
+   "end": 897,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 4519,
+    "output": 11,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "user",
+     "content": "tests/scheduler.test.ts fails about one run in five. Find out why and fix it."
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm0:c0",
+      "name": "list_dir",
+      "args": {
+       "path": "src"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool2",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "list_dir",
+   "start": 937,
+   "end": 997,
+   "status": "ok",
+   "tool": {
+    "name": "list_dir",
+    "args": {
+     "path": "src"
+    },
+    "result": [
+     "scheduler.ts",
+     "clock.ts",
+     "queue.ts"
+    ]
+   }
+  },
+  {
+   "id": "coding-agent:llm1",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → read_file",
+   "start": 1027,
+   "end": 1925,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 0,
+    "output": 15,
+    "cacheRead": 4519,
+    "cacheWrite": 91
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "user",
+     "content": "tests/scheduler.test.ts fails about one run in five. Find out why and fix it."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm0:c0",
+       "name": "list_dir",
+       "args": {
+        "path": "src"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "list_dir",
+     "content": "[\"scheduler.ts\",\"clock.ts\",\"queue.ts\"]"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm1:c0",
+      "name": "read_file",
+      "args": {
+       "path": "src/scheduler.ts"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool4",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "read_file",
+   "start": 1965,
+   "end": 2055,
+   "status": "ok",
+   "tool": {
+    "name": "read_file",
+    "args": {
+     "path": "src/scheduler.ts"
+    },
+    "result": "…"
+   }
+  },
+  {
+   "id": "coding-agent:llm2",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → read_file",
+   "start": 2085,
+   "end": 3020,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 0,
+    "output": 14,
+    "cacheRead": 4610,
+    "cacheWrite": 2255
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "user",
+     "content": "tests/scheduler.test.ts fails about one run in five. Find out why and fix it."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm0:c0",
+       "name": "list_dir",
+       "args": {
+        "path": "src"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "list_dir",
+     "content": "[\"scheduler.ts\",\"clock.ts\",\"queue.ts\"]"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm1:c0",
+       "name": "read_file",
+       "args": {
+        "path": "src/scheduler.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm2:c0",
+      "name": "read_file",
+      "args": {
+       "path": "src/clock.ts"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool6",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "read_file",
+   "start": 3060,
+   "end": 3150,
+   "status": "ok",
+   "tool": {
+    "name": "read_file",
+    "args": {
+     "path": "src/clock.ts"
+    },
+    "result": "…"
+   }
+  },
+  {
+   "id": "coding-agent:llm3",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → read_file",
+   "start": 3180,
+   "end": 4160,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 0,
+    "output": 16,
+    "cacheRead": 6865,
+    "cacheWrite": 2094
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm0:c0",
+       "name": "list_dir",
+       "args": {
+        "path": "src"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "list_dir",
+     "content": "[\"scheduler.ts\",\"clock.ts\",\"queue.ts\"]"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm1:c0",
+       "name": "read_file",
+       "args": {
+        "path": "src/scheduler.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm2:c0",
+       "name": "read_file",
+       "args": {
+        "path": "src/clock.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm3:c0",
+      "name": "read_file",
+      "args": {
+       "path": "tests/scheduler.test.ts"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool8",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "read_file",
+   "start": 4200,
+   "end": 4290,
+   "status": "ok",
+   "tool": {
+    "name": "read_file",
+    "args": {
+     "path": "tests/scheduler.test.ts"
+    },
+    "result": "…"
+   }
+  },
+  {
+   "id": "coding-agent:llm4",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → read_file",
+   "start": 4320,
+   "end": 5367,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 0,
+    "output": 14,
+    "cacheRead": 8959,
+    "cacheWrite": 2536
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm1:c0",
+       "name": "read_file",
+       "args": {
+        "path": "src/scheduler.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm2:c0",
+       "name": "read_file",
+       "args": {
+        "path": "src/clock.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm3:c0",
+       "name": "read_file",
+       "args": {
+        "path": "tests/scheduler.test.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm4:c0",
+      "name": "read_file",
+      "args": {
+       "path": "src/queue.ts"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool10",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "read_file",
+   "start": 5407,
+   "end": 5497,
+   "status": "ok",
+   "tool": {
+    "name": "read_file",
+    "args": {
+     "path": "src/queue.ts"
+    },
+    "result": "…"
+   }
+  },
+  {
+   "id": "coding-agent:llm5",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → run_tests",
+   "start": 5527,
+   "end": 6506,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 0,
+    "output": 14,
+    "cacheRead": 11495,
+    "cacheWrite": 2094
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm2:c0",
+       "name": "read_file",
+       "args": {
+        "path": "src/clock.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm3:c0",
+       "name": "read_file",
+       "args": {
+        "path": "tests/scheduler.test.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm4:c0",
+       "name": "read_file",
+       "args": {
+        "path": "src/queue.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm5:c0",
+      "name": "run_tests",
+      "args": {
+       "pattern": "scheduler"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool12",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "run_tests",
+   "start": 6546,
+   "end": 13946,
+   "status": "ok",
+   "tool": {
+    "name": "run_tests",
+    "args": {
+     "pattern": "scheduler"
+    },
+    "result": "1 failed: expected 3 jobs, got 2"
+   }
+  },
+  {
+   "id": "coding-agent:llm6",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "hypothesis",
+   "start": 13976,
+   "end": 18285,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 0,
+    "output": 160,
+    "cacheRead": 13589,
+    "cacheWrite": 714
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm3:c0",
+       "name": "read_file",
+       "args": {
+        "path": "tests/scheduler.test.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm4:c0",
+       "name": "read_file",
+       "args": {
+        "path": "src/queue.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm5:c0",
+       "name": "run_tests",
+       "args": {
+        "pattern": "scheduler"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "run_tests",
+     "content": "1 failed: expected 3 jobs, got 2"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "The test uses real time; jobs scheduled at the same millisecond race."
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:llm7",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → grep",
+   "start": 18325,
+   "end": 19258,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 0,
+    "output": 12,
+    "cacheRead": 14303,
+    "cacheWrite": 160
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm4:c0",
+       "name": "read_file",
+       "args": {
+        "path": "src/queue.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm5:c0",
+       "name": "run_tests",
+       "args": {
+        "pattern": "scheduler"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "run_tests",
+     "content": "1 failed: expected 3 jobs, got 2"
+    },
+    {
+     "role": "assistant",
+     "content": "The test uses real time; jobs scheduled at the same millisecond race."
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm7:c0",
+      "name": "grep",
+      "args": {
+       "pattern": "Date.now"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool15",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "grep",
+   "start": 19298,
+   "end": 19418,
+   "status": "ok",
+   "tool": {
+    "name": "grep",
+    "args": {
+     "pattern": "Date.now"
+    },
+    "result": "src/clock.ts:12, src/scheduler.ts:48"
+   }
+  },
+  {
+   "id": "coding-agent:llm8",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → edit_file",
+   "start": 19448,
+   "end": 20678,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 14615,
+    "output": 30,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm5:c0",
+       "name": "run_tests",
+       "args": {
+        "pattern": "scheduler"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "run_tests",
+     "content": "1 failed: expected 3 jobs, got 2"
+    },
+    {
+     "role": "assistant",
+     "content": "The test uses real time; jobs scheduled at the same millisecond race."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm7:c0",
+       "name": "grep",
+       "args": {
+        "pattern": "Date.now"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "grep",
+     "content": "src/clock.ts:12, src/scheduler.ts:48"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm8:c0",
+      "name": "edit_file",
+      "args": {
+       "path": "src/scheduler.ts",
+       "edits": [
+        {
+         "find": "Date.now()",
+         "replace": "this.clock.now()"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool17",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "edit_file",
+   "start": 20718,
+   "end": 20798,
+   "status": "error",
+   "error": "find text not found: 'Date.now()' appears with different spacing",
+   "tool": {
+    "name": "edit_file",
+    "args": {
+     "path": "src/scheduler.ts"
+    },
+    "result": null
+   }
+  },
+  {
+   "id": "coding-agent:llm9",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → read_file",
+   "start": 20828,
+   "end": 21899,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 14685,
+    "output": 15,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "tool",
+     "name": "run_tests",
+     "content": "1 failed: expected 3 jobs, got 2"
+    },
+    {
+     "role": "assistant",
+     "content": "The test uses real time; jobs scheduled at the same millisecond race."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm7:c0",
+       "name": "grep",
+       "args": {
+        "pattern": "Date.now"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "grep",
+     "content": "src/clock.ts:12, src/scheduler.ts:48"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm8:c0",
+       "name": "edit_file",
+       "args": {
+        "path": "src/scheduler.ts",
+        "edits": [
+         {
+          "find": "Date.now()",
+          "replace": "this.clock.now()"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "edit_file",
+     "content": "Error: find text not found: 'Date.now()' appears with different spacing"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm9:c0",
+      "name": "read_file",
+      "args": {
+       "path": "src/scheduler.ts"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool19",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "read_file",
+   "start": 21939,
+   "end": 22029,
+   "status": "ok",
+   "tool": {
+    "name": "read_file",
+    "args": {
+     "path": "src/scheduler.ts"
+    },
+    "result": "…"
+   }
+  },
+  {
+   "id": "coding-agent:llm10",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → edit_file",
+   "start": 22059,
+   "end": 23519,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 17000,
+    "output": 30,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm7:c0",
+       "name": "grep",
+       "args": {
+        "pattern": "Date.now"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "grep",
+     "content": "src/clock.ts:12, src/scheduler.ts:48"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm8:c0",
+       "name": "edit_file",
+       "args": {
+        "path": "src/scheduler.ts",
+        "edits": [
+         {
+          "find": "Date.now()",
+          "replace": "this.clock.now()"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "edit_file",
+     "content": "Error: find text not found: 'Date.now()' appears with different spacing"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm9:c0",
+       "name": "read_file",
+       "args": {
+        "path": "src/scheduler.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm10:c0",
+      "name": "edit_file",
+      "args": {
+       "path": "src/scheduler.ts",
+       "edits": [
+        {
+         "find": "Date.now( )",
+         "replace": "this.clock.now()"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool21",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "edit_file",
+   "start": 23559,
+   "end": 23629,
+   "status": "ok",
+   "tool": {
+    "name": "edit_file",
+    "args": {
+     "path": "src/scheduler.ts"
+    },
+    "result": {
+     "ok": true
+    }
+   }
+  },
+  {
+   "id": "coding-agent:llm11",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → edit_file",
+   "start": 23659,
+   "end": 25100,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 17060,
+    "output": 35,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm8:c0",
+       "name": "edit_file",
+       "args": {
+        "path": "src/scheduler.ts",
+        "edits": [
+         {
+          "find": "Date.now()",
+          "replace": "this.clock.now()"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "edit_file",
+     "content": "Error: find text not found: 'Date.now()' appears with different spacing"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm9:c0",
+       "name": "read_file",
+       "args": {
+        "path": "src/scheduler.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm10:c0",
+       "name": "edit_file",
+       "args": {
+        "path": "src/scheduler.ts",
+        "edits": [
+         {
+          "find": "Date.now( )",
+          "replace": "this.clock.now()"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "edit_file",
+     "content": "{\"ok\":true}"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm11:c0",
+      "name": "edit_file",
+      "args": {
+       "path": "tests/scheduler.test.ts",
+       "edits": [
+        {
+         "find": "new Scheduler()",
+         "replace": "new Scheduler(fakeClock)"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool23",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "edit_file",
+   "start": 25140,
+   "end": 25210,
+   "status": "ok",
+   "tool": {
+    "name": "edit_file",
+    "args": {
+     "path": "tests/scheduler.test.ts"
+    },
+    "result": {
+     "ok": true
+    }
+   }
+  },
+  {
+   "id": "coding-agent:llm12",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → run_tests",
+   "start": 25240,
+   "end": 26332,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 17125,
+    "output": 19,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm9:c0",
+       "name": "read_file",
+       "args": {
+        "path": "src/scheduler.ts"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "read_file",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm10:c0",
+       "name": "edit_file",
+       "args": {
+        "path": "src/scheduler.ts",
+        "edits": [
+         {
+          "find": "Date.now( )",
+          "replace": "this.clock.now()"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "edit_file",
+     "content": "{\"ok\":true}"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm11:c0",
+       "name": "edit_file",
+       "args": {
+        "path": "tests/scheduler.test.ts",
+        "edits": [
+         {
+          "find": "new Scheduler()",
+          "replace": "new Scheduler(fakeClock)"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "edit_file",
+     "content": "{\"ok\":true}"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm12:c0",
+      "name": "run_tests",
+      "args": {
+       "pattern": "scheduler",
+       "repeat": 20,
+       "seed": 1
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool25",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "run_tests",
+   "start": 26372,
+   "end": 36172,
+   "status": "ok",
+   "tool": {
+    "name": "run_tests",
+    "args": {
+     "pattern": "scheduler",
+     "repeat": 20,
+     "seed": 1
+    },
+    "result": "20 passed"
+   }
+  },
+  {
+   "id": "coding-agent:llm13",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → run_tests",
+   "start": 36202,
+   "end": 37458,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 17404,
+    "output": 19,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm10:c0",
+       "name": "edit_file",
+       "args": {
+        "path": "src/scheduler.ts",
+        "edits": [
+         {
+          "find": "Date.now( )",
+          "replace": "this.clock.now()"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "edit_file",
+     "content": "{\"ok\":true}"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm11:c0",
+       "name": "edit_file",
+       "args": {
+        "path": "tests/scheduler.test.ts",
+        "edits": [
+         {
+          "find": "new Scheduler()",
+          "replace": "new Scheduler(fakeClock)"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "edit_file",
+     "content": "{\"ok\":true}"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm12:c0",
+       "name": "run_tests",
+       "args": {
+        "pattern": "scheduler",
+        "repeat": 20,
+        "seed": 1
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "run_tests",
+     "content": "20 passed"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm13:c0",
+      "name": "run_tests",
+      "args": {
+       "pattern": "scheduler",
+       "repeat": 20,
+       "seed": 2
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool27",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "run_tests",
+   "start": 37498,
+   "end": 47298,
+   "status": "ok",
+   "tool": {
+    "name": "run_tests",
+    "args": {
+     "pattern": "scheduler",
+     "repeat": 20,
+     "seed": 2
+    },
+    "result": "20 passed"
+   }
+  },
+  {
+   "id": "coding-agent:llm14",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → run_tests",
+   "start": 47328,
+   "end": 48444,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 17683,
+    "output": 19,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm11:c0",
+       "name": "edit_file",
+       "args": {
+        "path": "tests/scheduler.test.ts",
+        "edits": [
+         {
+          "find": "new Scheduler()",
+          "replace": "new Scheduler(fakeClock)"
+         }
+        ]
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "edit_file",
+     "content": "{\"ok\":true}"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm12:c0",
+       "name": "run_tests",
+       "args": {
+        "pattern": "scheduler",
+        "repeat": 20,
+        "seed": 1
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "run_tests",
+     "content": "20 passed"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm13:c0",
+       "name": "run_tests",
+       "args": {
+        "pattern": "scheduler",
+        "repeat": 20,
+        "seed": 2
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "run_tests",
+     "content": "20 passed"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm14:c0",
+      "name": "run_tests",
+      "args": {
+       "pattern": "scheduler",
+       "repeat": 20,
+       "seed": 3
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool29",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "run_tests",
+   "start": 48484,
+   "end": 58284,
+   "status": "ok",
+   "tool": {
+    "name": "run_tests",
+    "args": {
+     "pattern": "scheduler",
+     "repeat": 20,
+     "seed": 3
+    },
+    "result": "20 passed"
+   }
+  },
+  {
+   "id": "coding-agent:llm15",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "plan → git_diff",
+   "start": 58314,
+   "end": 59141,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 17962,
+    "output": 8,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm12:c0",
+       "name": "run_tests",
+       "args": {
+        "pattern": "scheduler",
+        "repeat": 20,
+        "seed": 1
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "run_tests",
+     "content": "20 passed"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm13:c0",
+       "name": "run_tests",
+       "args": {
+        "pattern": "scheduler",
+        "repeat": 20,
+        "seed": 2
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "run_tests",
+     "content": "20 passed"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm14:c0",
+       "name": "run_tests",
+       "args": {
+        "pattern": "scheduler",
+        "repeat": 20,
+        "seed": 3
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "run_tests",
+     "content": "20 passed"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "coding-agent:llm15:c0",
+      "name": "git_diff",
+      "args": {}
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "coding-agent:tool31",
+   "parentId": "coding-agent",
+   "kind": "tool",
+   "name": "git_diff",
+   "start": 59181,
+   "end": 59241,
+   "status": "ok",
+   "tool": {
+    "name": "git_diff",
+    "args": {},
+    "result": "…"
+   }
+  },
+  {
+   "id": "coding-agent:llm16",
+   "parentId": "coding-agent",
+   "kind": "llm",
+   "name": "answer",
+   "start": 59271,
+   "end": 64560,
+   "status": "ok",
+   "model": "anthropic/claude-sonnet-5.5",
+   "usage": {
+    "input": 18390,
+    "output": 210,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You are a coding agent. Current time is written at the top of this prompt."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm13:c0",
+       "name": "run_tests",
+       "args": {
+        "pattern": "scheduler",
+        "repeat": 20,
+        "seed": 2
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "run_tests",
+     "content": "20 passed"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm14:c0",
+       "name": "run_tests",
+       "args": {
+        "pattern": "scheduler",
+        "repeat": 20,
+        "seed": 3
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "run_tests",
+     "content": "20 passed"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "coding-agent:llm15:c0",
+       "name": "git_diff",
+       "args": {}
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "git_diff",
+     "content": "…"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "Fixed. The scheduler read Date.now() directly, so two jobs created in the same millisecond got the same slot. It now uses the injected clock, and the test uses a fake clock. 60 of 60 runs pass."
+   },
+   "tools": [
+    {
+     "name": "read_file",
+     "description": "read file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "edit_file",
+     "description": "edit file in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "run_tests",
+     "description": "run tests in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "grep",
+     "description": "grep in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "list_dir",
+     "description": "list dir in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    },
+    {
+     "name": "git_diff",
+     "description": "git diff in the workspace. Paths are relative to the repository root. Large outputs are cut at 400 lines.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "path": {
+        "type": "string"
+       },
+       "pattern": {
+        "type": "string"
+       },
+       "edits": {
+        "type": "array"
+       }
+      }
+     }
+    }
+   ]
+  }
+ ]
+}

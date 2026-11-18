@@ -1,0 +1,1001 @@
+{
+ "blackbox": 1,
+ "id": "research-agent",
+ "title": "Research agent",
+ "description": "A research agent with prompt caching on. Large web pages stay in the context, but each call pays full price only for the new tokens.",
+ "source": "demo",
+ "startedAt": "2026-11-14T09:30:02.000Z",
+ "spans": [
+  {
+   "id": "research-agent",
+   "parentId": null,
+   "kind": "agent",
+   "name": "research-agent",
+   "start": 0,
+   "end": 94161,
+   "status": "ok"
+  },
+  {
+   "id": "research-agent:llm0",
+   "parentId": "research-agent",
+   "kind": "llm",
+   "name": "plan → search_library, web_search",
+   "start": 0,
+   "end": 1325,
+   "status": "ok",
+   "model": "openai/gpt-5.6-sol",
+   "usage": {
+    "input": 1548,
+    "output": 41,
+    "cacheRead": 0,
+    "cacheWrite": 0
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You write evidence-based briefs for school teachers. Cite every claim."
+    },
+    {
+     "role": "user",
+     "content": "Write a one-page brief for Dana's grade 9 science team: does spaced retrieval practice improve exam results? Include classroom routines."
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "research-agent:llm0:c0",
+      "name": "search_library",
+      "args": {
+       "q": "retrieval practice grade 9"
+      }
+     },
+     {
+      "id": "research-agent:llm0:c1",
+      "name": "web_search",
+      "args": {
+       "q": "spaced retrieval practice secondary school meta-analysis"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "web_search",
+     "description": "Search the web. Returns titles, URLs and snippets.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "fetch_page",
+     "description": "Fetch a URL and return readable text.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "url": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "search_library",
+     "description": "Search the school's curriculum library.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "research-agent:tool2",
+   "parentId": "research-agent",
+   "kind": "tool",
+   "name": "search_library",
+   "start": 1365,
+   "end": 1745,
+   "status": "ok",
+   "tool": {
+    "name": "search_library",
+    "args": {
+     "q": "retrieval practice grade 9"
+    },
+    "result": {
+     "results": 3
+    }
+   }
+  },
+  {
+   "id": "research-agent:tool3",
+   "parentId": "research-agent",
+   "kind": "tool",
+   "name": "web_search",
+   "start": 1400,
+   "end": 2550,
+   "status": "ok",
+   "tool": {
+    "name": "web_search",
+    "args": {
+     "q": "spaced retrieval practice secondary school meta-analysis"
+    },
+    "result": {
+     "results": 8
+    }
+   }
+  },
+  {
+   "id": "research-agent:llm1",
+   "parentId": "research-agent",
+   "kind": "llm",
+   "name": "plan → fetch_page, fetch_page, fetch_page, fetch_page",
+   "start": 2580,
+   "end": 4520,
+   "status": "ok",
+   "model": "openai/gpt-5.6-sol",
+   "usage": {
+    "input": 0,
+    "output": 68,
+    "cacheRead": 1548,
+    "cacheWrite": 2341
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You write evidence-based briefs for school teachers. Cite every claim."
+    },
+    {
+     "role": "user",
+     "content": "Write a one-page brief for Dana's grade 9 science team: does spaced retrieval practice improve exam results? Include classroom routines."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "research-agent:llm0:c0",
+       "name": "search_library",
+       "args": {
+        "q": "retrieval practice grade 9"
+       }
+      },
+      {
+       "id": "research-agent:llm0:c1",
+       "name": "web_search",
+       "args": {
+        "q": "spaced retrieval practice secondary school meta-analysis"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "search_library",
+     "content": "{\"results\":3}"
+    },
+    {
+     "role": "tool",
+     "name": "web_search",
+     "content": "{\"results\":8}"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "research-agent:llm1:c0",
+      "name": "fetch_page",
+      "args": {
+       "url": "https://example.edu/study-1"
+      }
+     },
+     {
+      "id": "research-agent:llm1:c1",
+      "name": "fetch_page",
+      "args": {
+       "url": "https://example.edu/study-2"
+      }
+     },
+     {
+      "id": "research-agent:llm1:c2",
+      "name": "fetch_page",
+      "args": {
+       "url": "https://example.edu/study-3"
+      }
+     },
+     {
+      "id": "research-agent:llm1:c3",
+      "name": "fetch_page",
+      "args": {
+       "url": "https://example.edu/study-4"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "web_search",
+     "description": "Search the web. Returns titles, URLs and snippets.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "fetch_page",
+     "description": "Fetch a URL and return readable text.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "url": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "search_library",
+     "description": "Search the school's curriculum library.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "research-agent:tool5",
+   "parentId": "research-agent",
+   "kind": "tool",
+   "name": "fetch_page",
+   "start": 4560,
+   "end": 5880,
+   "status": "ok",
+   "tool": {
+    "name": "fetch_page",
+    "args": {
+     "url": "https://example.edu/study-1"
+    },
+    "result": "…"
+   }
+  },
+  {
+   "id": "research-agent:tool6",
+   "parentId": "research-agent",
+   "kind": "tool",
+   "name": "fetch_page",
+   "start": 4595,
+   "end": 6335,
+   "status": "ok",
+   "tool": {
+    "name": "fetch_page",
+    "args": {
+     "url": "https://example.edu/study-2"
+    },
+    "result": "…"
+   }
+  },
+  {
+   "id": "research-agent:tool7",
+   "parentId": "research-agent",
+   "kind": "tool",
+   "name": "fetch_page",
+   "start": 4630,
+   "end": 6790,
+   "status": "ok",
+   "tool": {
+    "name": "fetch_page",
+    "args": {
+     "url": "https://example.edu/study-3"
+    },
+    "result": "…"
+   }
+  },
+  {
+   "id": "research-agent:tool8",
+   "parentId": "research-agent",
+   "kind": "tool",
+   "name": "fetch_page",
+   "start": 4665,
+   "end": 7245,
+   "status": "ok",
+   "tool": {
+    "name": "fetch_page",
+    "args": {
+     "url": "https://example.edu/study-4"
+    },
+    "result": "…"
+   }
+  },
+  {
+   "id": "research-agent:llm2",
+   "parentId": "research-agent",
+   "kind": "llm",
+   "name": "extract_findings",
+   "start": 7275,
+   "end": 29040,
+   "status": "ok",
+   "model": "openai/gpt-5.6-sol",
+   "usage": {
+    "input": 0,
+    "output": 950,
+    "cacheRead": 3889,
+    "cacheWrite": 22868
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You write evidence-based briefs for school teachers. Cite every claim."
+    },
+    {
+     "role": "tool",
+     "name": "web_search",
+     "content": "{\"results\":8}"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "research-agent:llm1:c0",
+       "name": "fetch_page",
+       "args": {
+        "url": "https://example.edu/study-1"
+       }
+      },
+      {
+       "id": "research-agent:llm1:c1",
+       "name": "fetch_page",
+       "args": {
+        "url": "https://example.edu/study-2"
+       }
+      },
+      {
+       "id": "research-agent:llm1:c2",
+       "name": "fetch_page",
+       "args": {
+        "url": "https://example.edu/study-3"
+       }
+      },
+      {
+       "id": "research-agent:llm1:c3",
+       "name": "fetch_page",
+       "args": {
+        "url": "https://example.edu/study-4"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "fetch_page",
+     "content": "…"
+    },
+    {
+     "role": "tool",
+     "name": "fetch_page",
+     "content": "…"
+    },
+    {
+     "role": "tool",
+     "name": "fetch_page",
+     "content": "…"
+    },
+    {
+     "role": "tool",
+     "name": "fetch_page",
+     "content": "…"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "Effect sizes from four studies…"
+   },
+   "tools": [
+    {
+     "name": "web_search",
+     "description": "Search the web. Returns titles, URLs and snippets.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "fetch_page",
+     "description": "Fetch a URL and return readable text.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "url": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "search_library",
+     "description": "Search the school's curriculum library.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "research-agent:llm3",
+   "parentId": "research-agent",
+   "kind": "llm",
+   "name": "plan → web_search",
+   "start": 29080,
+   "end": 30400,
+   "status": "ok",
+   "model": "openai/gpt-5.6-sol",
+   "usage": {
+    "input": 0,
+    "output": 24,
+    "cacheRead": 26757,
+    "cacheWrite": 950
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You write evidence-based briefs for school teachers. Cite every claim."
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "research-agent:llm1:c0",
+       "name": "fetch_page",
+       "args": {
+        "url": "https://example.edu/study-1"
+       }
+      },
+      {
+       "id": "research-agent:llm1:c1",
+       "name": "fetch_page",
+       "args": {
+        "url": "https://example.edu/study-2"
+       }
+      },
+      {
+       "id": "research-agent:llm1:c2",
+       "name": "fetch_page",
+       "args": {
+        "url": "https://example.edu/study-3"
+       }
+      },
+      {
+       "id": "research-agent:llm1:c3",
+       "name": "fetch_page",
+       "args": {
+        "url": "https://example.edu/study-4"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "fetch_page",
+     "content": "…"
+    },
+    {
+     "role": "tool",
+     "name": "fetch_page",
+     "content": "…"
+    },
+    {
+     "role": "tool",
+     "name": "fetch_page",
+     "content": "…"
+    },
+    {
+     "role": "tool",
+     "name": "fetch_page",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "Effect sizes from four studies…"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "",
+    "toolCalls": [
+     {
+      "id": "research-agent:llm3:c0",
+      "name": "web_search",
+      "args": {
+       "q": "retrieval practice classroom routines low stakes quizzes"
+      }
+     }
+    ]
+   },
+   "tools": [
+    {
+     "name": "web_search",
+     "description": "Search the web. Returns titles, URLs and snippets.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "fetch_page",
+     "description": "Fetch a URL and return readable text.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "url": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "search_library",
+     "description": "Search the school's curriculum library.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "research-agent:tool11",
+   "parentId": "research-agent",
+   "kind": "tool",
+   "name": "web_search",
+   "start": 30440,
+   "end": 31420,
+   "status": "ok",
+   "tool": {
+    "name": "web_search",
+    "args": {
+     "q": "retrieval practice classroom routines low stakes quizzes"
+    },
+    "result": {
+     "results": 8
+    }
+   }
+  },
+  {
+   "id": "research-agent:llm4",
+   "parentId": "research-agent",
+   "kind": "llm",
+   "name": "outline",
+   "start": 31450,
+   "end": 41503,
+   "status": "ok",
+   "model": "openai/gpt-5.6-sol",
+   "usage": {
+    "input": 0,
+    "output": 420,
+    "cacheRead": 27707,
+    "cacheWrite": 1324
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You write evidence-based briefs for school teachers. Cite every claim."
+    },
+    {
+     "role": "tool",
+     "name": "fetch_page",
+     "content": "…"
+    },
+    {
+     "role": "tool",
+     "name": "fetch_page",
+     "content": "…"
+    },
+    {
+     "role": "tool",
+     "name": "fetch_page",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "Effect sizes from four studies…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "research-agent:llm3:c0",
+       "name": "web_search",
+       "args": {
+        "q": "retrieval practice classroom routines low stakes quizzes"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "web_search",
+     "content": "{\"results\":8}"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "1. What the evidence says 2. Three routines 3. How to measure"
+   },
+   "tools": [
+    {
+     "name": "web_search",
+     "description": "Search the web. Returns titles, URLs and snippets.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "fetch_page",
+     "description": "Fetch a URL and return readable text.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "url": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "search_library",
+     "description": "Search the school's curriculum library.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "research-agent:llm5",
+   "parentId": "research-agent",
+   "kind": "llm",
+   "name": "draft",
+   "start": 41543,
+   "end": 65432,
+   "status": "ok",
+   "model": "openai/gpt-5.6-sol",
+   "usage": {
+    "input": 0,
+    "output": 1650,
+    "cacheRead": 29031,
+    "cacheWrite": 420
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You write evidence-based briefs for school teachers. Cite every claim."
+    },
+    {
+     "role": "tool",
+     "name": "fetch_page",
+     "content": "…"
+    },
+    {
+     "role": "tool",
+     "name": "fetch_page",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "Effect sizes from four studies…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "research-agent:llm3:c0",
+       "name": "web_search",
+       "args": {
+        "q": "retrieval practice classroom routines low stakes quizzes"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "web_search",
+     "content": "{\"results\":8}"
+    },
+    {
+     "role": "assistant",
+     "content": "1. What the evidence says 2. Three routines 3. How to measure"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "Brief draft…"
+   },
+   "tools": [
+    {
+     "name": "web_search",
+     "description": "Search the web. Returns titles, URLs and snippets.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "fetch_page",
+     "description": "Fetch a URL and return readable text.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "url": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "search_library",
+     "description": "Search the school's curriculum library.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "research-agent:llm6",
+   "parentId": "research-agent",
+   "kind": "llm",
+   "name": "check_citations",
+   "start": 65472,
+   "end": 68998,
+   "status": "ok",
+   "model": "openai/gpt-5.6-sol",
+   "usage": {
+    "input": 0,
+    "output": 120,
+    "cacheRead": 29451,
+    "cacheWrite": 1650
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You write evidence-based briefs for school teachers. Cite every claim."
+    },
+    {
+     "role": "tool",
+     "name": "fetch_page",
+     "content": "…"
+    },
+    {
+     "role": "assistant",
+     "content": "Effect sizes from four studies…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "research-agent:llm3:c0",
+       "name": "web_search",
+       "args": {
+        "q": "retrieval practice classroom routines low stakes quizzes"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "web_search",
+     "content": "{\"results\":8}"
+    },
+    {
+     "role": "assistant",
+     "content": "1. What the evidence says 2. Three routines 3. How to measure"
+    },
+    {
+     "role": "assistant",
+     "content": "Brief draft…"
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "All 7 claims have sources."
+   },
+   "tools": [
+    {
+     "name": "web_search",
+     "description": "Search the web. Returns titles, URLs and snippets.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "fetch_page",
+     "description": "Fetch a URL and return readable text.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "url": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "search_library",
+     "description": "Search the school's curriculum library.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  },
+  {
+   "id": "research-agent:llm7",
+   "parentId": "research-agent",
+   "kind": "llm",
+   "name": "answer",
+   "start": 69038,
+   "end": 94121,
+   "status": "ok",
+   "model": "openai/gpt-5.6-sol",
+   "usage": {
+    "input": 0,
+    "output": 1720,
+    "cacheRead": 31101,
+    "cacheWrite": 120
+   },
+   "input": [
+    {
+     "role": "system",
+     "content": "You write evidence-based briefs for school teachers. Cite every claim."
+    },
+    {
+     "role": "assistant",
+     "content": "Effect sizes from four studies…"
+    },
+    {
+     "role": "assistant",
+     "content": "",
+     "toolCalls": [
+      {
+       "id": "research-agent:llm3:c0",
+       "name": "web_search",
+       "args": {
+        "q": "retrieval practice classroom routines low stakes quizzes"
+       }
+      }
+     ]
+    },
+    {
+     "role": "tool",
+     "name": "web_search",
+     "content": "{\"results\":8}"
+    },
+    {
+     "role": "assistant",
+     "content": "1. What the evidence says 2. Three routines 3. How to measure"
+    },
+    {
+     "role": "assistant",
+     "content": "Brief draft…"
+    },
+    {
+     "role": "assistant",
+     "content": "All 7 claims have sources."
+    }
+   ],
+   "output": {
+    "role": "assistant",
+    "content": "Final brief for the grade 9 science team…"
+   },
+   "tools": [
+    {
+     "name": "web_search",
+     "description": "Search the web. Returns titles, URLs and snippets.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "fetch_page",
+     "description": "Fetch a URL and return readable text.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "url": {
+        "type": "string"
+       }
+      }
+     }
+    },
+    {
+     "name": "search_library",
+     "description": "Search the school's curriculum library.",
+     "parameters": {
+      "type": "object",
+      "properties": {
+       "q": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   ]
+  }
+ ]
+}
